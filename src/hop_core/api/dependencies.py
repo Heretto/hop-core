@@ -46,7 +46,7 @@ def _validate_access_token(token: str, db: Session):
         if not user_id:
             raise AuthenticationError("Invalid token payload")
 
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == UUID(user_id)).first()
         if not user:
             raise AuthenticationError("User not found")
 
@@ -89,7 +89,8 @@ async def get_current_user_context(
     token = _extract_token(request, credentials)
     user, payload = _validate_access_token(token, db)
 
-    org_id = payload.get("org_id")
+    org_id_str = payload.get("org_id")
+    org_id = UUID(org_id_str) if org_id_str else None
     org = None
     org_role = None
 

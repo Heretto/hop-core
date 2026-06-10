@@ -24,7 +24,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "httpx"]
+dev = ["pytest", "httpx", "anyio[trio]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

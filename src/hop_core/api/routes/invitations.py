@@ -7,6 +7,14 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from hop_core.db import get_db
+
+
+def _is_expired(expires_at: datetime) -> bool:
+    """Compare invitation expiry against now, handling naive (SQLite) datetimes."""
+    now = datetime.now(timezone.utc)
+    if expires_at.tzinfo is None:
+        return expires_at < now.replace(tzinfo=None)
+    return expires_at < now
 from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationMember, OrganizationInvitation
 from hop_core.core.security import get_password_hash, verify_password
@@ -53,7 +61,7 @@ async def get_invitation_info(
             detail="Invalid or expired invitation",
         )
 
-    if invitation.expires_at < datetime.now(timezone.utc):
+    if _is_expired(invitation.expires_at):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This invitation has expired",
@@ -109,7 +117,7 @@ async def accept_invitation_new_user(
             detail="Invalid or expired invitation",
         )
 
-    if invitation.expires_at < datetime.now(timezone.utc):
+    if _is_expired(invitation.expires_at):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This invitation has expired",
@@ -196,7 +204,7 @@ async def accept_invitation_existing_user(
             detail="Invalid or expired invitation",
         )
 
-    if invitation.expires_at < datetime.now(timezone.utc):
+    if _is_expired(invitation.expires_at):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This invitation has expired",

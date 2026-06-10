@@ -468,7 +468,11 @@ async def accept_invitation(
             detail="Invalid or expired invitation",
         )
 
-    if invitation.expires_at < datetime.now(timezone.utc):
+    inv_expires = invitation.expires_at
+    inv_now = datetime.now(timezone.utc)
+    if inv_expires.tzinfo is None:
+        inv_now = inv_now.replace(tzinfo=None)
+    if inv_expires < inv_now:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invitation has expired",

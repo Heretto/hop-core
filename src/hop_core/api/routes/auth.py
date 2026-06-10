@@ -224,7 +224,7 @@ async def refresh_token_endpoint(
             )
 
         user_id = payload.get("sub")
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 

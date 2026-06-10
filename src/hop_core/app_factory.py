@@ -30,6 +30,7 @@ def create_hop_app(
     version: str = "1.0.0",
     include_admin: bool = True,
     include_superadmin: bool = True,
+    include_credentials_router: bool = True,
 ) -> FastAPI:
     """Create a FastAPI application with hop-core platform routes.
 
@@ -41,6 +42,9 @@ def create_hop_app(
         version: Application version.
         include_admin: Include dev-only admin routes.
         include_superadmin: Include superadmin routes.
+        include_credentials_router: Include hop-core's generic credentials router.
+            Set to False when the host app provides its own credentials router via
+            extra_routers with type-specific sub-routes (e.g. /credentials/jira).
     """
     configure(settings_factory)
     settings = get_settings()
@@ -96,7 +100,8 @@ def create_hop_app(
     app.include_router(auth.router, prefix=prefix, tags=["auth"])
     app.include_router(sso.router, prefix=prefix, tags=["sso"])
     app.include_router(invitations.router, prefix=prefix, tags=["invitations"])
-    app.include_router(credentials.router, prefix=prefix, tags=["credentials"])
+    if include_credentials_router:
+        app.include_router(credentials.router, prefix=prefix, tags=["credentials"])
     app.include_router(account.router, prefix=prefix, tags=["account"])
     app.include_router(organizations.router, prefix=prefix, tags=["organizations"])
 
