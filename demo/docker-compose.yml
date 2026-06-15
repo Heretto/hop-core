@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: demo/Dockerfile.backend
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////data/demo.db
+      CORS_ORIGINS: http://localhost
+    ports:
+      - "8000:8000"
+    volumes:
+      - db-data:/data
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: demo/Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

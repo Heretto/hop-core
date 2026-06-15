@@ -1,0 +1,14 @@
+# Build context: repo root (docker compose uses context: ..)
+FROM node:20-slim AS build
+
+WORKDIR /app
+COPY demo/frontend/package.json ./
+RUN npm install
+COPY ui/ /ui/
+COPY demo/frontend/ .
+RUN npm run build:prod
+
+FROM nginx:alpine
+COPY --from=build /app/dist/demo/ /usr/share/nginx/html/
+COPY demo/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

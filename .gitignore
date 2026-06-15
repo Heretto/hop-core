@@ -61,3 +61,14 @@ cover/
 # OS
 .DS_Store
 Thumbs.db
+
+# SQLite databases
+*.db
+
+# Environment files (keep example files)
+.env.*
+!**/.env.example
+
+# Angular build cache and dependencies
+demo/frontend/.angular/
+demo/frontend/node_modules/

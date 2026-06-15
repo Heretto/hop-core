@@ -1,0 +1,14 @@
+@use '@angular/material' as mat;
+@use '../../../ui/src/lib/theme/index' as hop;
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+@include hop.hop-core-theme();
