@@ -1,0 +1,50 @@
+@use '@angular/material' as mat;
+@use 'variables' as vars;
+
+// Define the hop-core palette (indigo/purple-blue brand)
+$hop-primary-palette: mat.define-palette(mat.$indigo-palette);
+$hop-accent-palette:  mat.define-palette(mat.$deep-purple-palette, A200, A100, A400);
+$hop-warn-palette:    mat.define-palette(mat.$red-palette);
+
+$hop-theme: mat.define-light-theme((
+  color: (
+    primary: $hop-primary-palette,
+    accent:  $hop-accent-palette,
+    warn:    $hop-warn-palette,
+  ),
+  typography: mat.define-typography-config(),
+  density: 0,
+));
+
+@mixin hop-core-theme() {
+  @include mat.all-component-themes($hop-theme);
+
+  // Global utility classes that all hop-ui host apps get
+  .hop-status-message {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+
+    &.success {
+      background-color: var(--hop-success-bg);
+      color: var(--hop-success-text);
+    }
+
+    &.error {
+      background-color: var(--hop-error-bg);
+      color: var(--hop-error-text);
+    }
+  }
+
+  .hop-form-section {
+    margin-bottom: 30px;
+    h4 { margin-bottom: 15px; color: var(--hop-primary); }
+  }
+
+  .hop-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+  }
+}

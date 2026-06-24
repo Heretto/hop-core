@@ -1,0 +1,31 @@
+// Hop-core brand colors
+$hop-primary-hue:    #3f51b5;   // indigo 500
+$hop-accent-hue:     #667eea;   // brand purple-blue
+$hop-warn-hue:       #f44336;   // red 500
+
+:root {
+  // Core palette
+  --hop-primary:         #{$hop-primary-hue};
+  --hop-accent:          #{$hop-accent-hue};
+  --hop-warn:            #{$hop-warn-hue};
+
+  // Auth page background gradient
+  --hop-gradient:        linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  // Layout
+  --hop-sidebar-width:   250px;
+  --hop-toolbar-height:  64px;
+
+  // Spacing scale
+  --hop-space-xs:  4px;
+  --hop-space-sm:  8px;
+  --hop-space-md:  16px;
+  --hop-space-lg:  24px;
+  --hop-space-xl:  32px;
+
+  // Status colours (used in global utility classes)
+  --hop-success-bg:      #c8e6c9;
+  --hop-success-text:    #2e7d32;
+  --hop-error-bg:        #ffcdd2;
+  --hop-error-text:      #c62828;
+}
