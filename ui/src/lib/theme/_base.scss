@@ -1,0 +1,174 @@
+// =============================================================================
+// Base layer — reset, typography, and generic utilities (hop-ui)
+// Emitted via a mixin so nothing renders until hop-core-theme() is included.
+// =============================================================================
+
+@use 'variables' as *;
+
+@mixin hop-base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    height: 100%;
+    // 15px root tightens rem-based type to a tool-UI scale (body ≈ 14px)
+    // without touching px-based spacing.
+    font-size: 15px;
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  body {
+    height: 100%;
+    margin: 0;
+    font-family: $font-family-primary;
+    font-size: $font-size-base;
+    font-weight: $font-weight-regular;
+    line-height: $line-height-normal;
+    letter-spacing: -0.011em;            // Inter at UI sizes wants tight tracking
+    font-feature-settings: 'cv05' 1, 'ss01' 1; // Inter: open digits / refined glyphs
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    overflow-wrap: break-word;           // long UUIDs/URLs wrap instead of widening
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  // Typography ----------------------------------------------------------------
+  h1, h2, h3, h4, h5, h6 {
+    margin: 0 0 $spacing-4;
+    font-weight: $font-weight-semibold;
+    line-height: $line-height-tight;
+    color: var(--text-primary);
+  }
+  h1, h2, h3 { letter-spacing: -0.02em; }
+
+  h1 { font-size: $font-size-3xl; }
+  h2 { font-size: $font-size-2xl; }
+  h3 { font-size: $font-size-xl; }
+  h4 { font-size: $font-size-lg; }
+  h5 { font-size: $font-size-md; }
+  h6 { font-size: $font-size-base; }
+
+  p {
+    margin: 0 0 $spacing-4;
+    color: var(--text-secondary);
+  }
+
+  a {
+    color: var(--text-link);
+    text-decoration: none;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: var(--text-link-hover);
+      text-decoration: underline;
+    }
+  }
+
+  code, pre, kbd, samp {
+    font-family: $font-family-mono;
+    font-size: 0.9em;
+  }
+
+  code {
+    padding: 2px 6px;
+    background-color: var(--code-bg);
+    color: var(--code-text);
+    border-radius: $radius-sm;
+  }
+
+  pre {
+    padding: $spacing-4;
+    background-color: var(--code-bg);
+    border-radius: $radius-md;
+    overflow-x: auto;
+
+    code {
+      padding: 0;
+      background: none;
+    }
+  }
+
+  // Selection -----------------------------------------------------------------
+  ::selection {
+    background-color: var(--color-accent-bg);
+    color: var(--text-primary);
+  }
+
+  // Scrollbar -----------------------------------------------------------------
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+
+    &:hover { background: var(--scrollbar-thumb-hover); }
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  // Focus ---------------------------------------------------------------------
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  // Visible, branded focus for keyboard users on non-Material elements.
+  a:focus-visible,
+  button:focus-visible:not([class*='mat-']),
+  input:focus-visible:not([class*='mat-']),
+  select:focus-visible,
+  textarea:focus-visible:not([class*='mat-']) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  // Utility classes -----------------------------------------------------------
+  .text-primary   { color: var(--text-primary) !important; }
+  .text-secondary { color: var(--text-secondary) !important; }
+  .text-tertiary  { color: var(--text-tertiary) !important; }
+  .text-success   { color: var(--color-success-text) !important; }
+  .text-warning   { color: var(--color-warning-text) !important; }
+  .text-error     { color: var(--color-error-text) !important; }
+
+  .bg-primary   { background-color: var(--bg-primary) !important; }
+  .bg-secondary { background-color: var(--bg-secondary) !important; }
+  .bg-surface   { background-color: var(--surface-default) !important; }
+
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: var(--bg-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: $z-modal;
+  }
+
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    padding: $spacing-2 $spacing-4;
+    background: var(--color-primary);
+    color: #fff;
+    z-index: 1000;
+    transition: top $transition-fast;
+
+    &:focus { top: 0; }
+  }
+}

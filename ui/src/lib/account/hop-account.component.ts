@@ -178,12 +178,12 @@ import { HopAuthService } from '../auth/hop-auth.service';
   `,
   styles: [`
     .account-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-    h1 { margin-bottom: 30px; color: #333; }
+    h1 { margin-bottom: 30px; color: var(--text-primary); }
     .loading-container { display: flex; flex-direction: column; align-items: center; padding: 60px; }
-    .loading-container p { margin-top: 20px; color: #666; }
+    .loading-container p { margin-top: 20px; color: var(--text-secondary); }
     .account-content { display: flex; flex-direction: column; gap: 24px; }
-    .info-card { background: var(--hop-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%)); color: white; }
-    .info-card mat-card-title { display: flex; align-items: center; gap: 10px; color: white; }
+    .info-card { background: var(--hop-gradient); color: #fff; }
+    .info-card mat-card-title { display: flex; align-items: center; gap: 10px; color: #fff; }
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
     .info-item { display: flex; flex-direction: column; gap: 5px; }
     .info-item label { font-size: 12px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -195,11 +195,11 @@ import { HopAuthService } from '../auth/hop-auth.service';
     .full-width { width: 100%; }
     .form-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
     .form-actions button { display: flex; align-items: center; gap: 8px; }
-    .danger-card { border: 2px solid #ff5252; background-color: #fff5f5; }
-    .danger-title { color: #ff5252; display: flex; align-items: center; gap: 10px; }
+    .danger-card { border: 2px solid var(--color-error); background-color: var(--color-error-bg); }
+    .danger-title { color: var(--color-error); display: flex; align-items: center; gap: 10px; }
     .danger-content { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-    .danger-text h3 { margin: 0 0 8px 0; color: #d32f2f; }
-    .danger-text p { margin: 0; color: #666; }
+    .danger-text h3 { margin: 0 0 8px 0; color: var(--color-error-text); }
+    .danger-text p { margin: 0; color: var(--text-secondary); }
     @media (max-width: 600px) {
       .info-grid { grid-template-columns: 1fr; }
       .danger-content { flex-direction: column; align-items: flex-start; gap: 20px; }

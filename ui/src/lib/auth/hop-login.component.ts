@@ -131,25 +131,25 @@ import { HOP_API_URL } from '../tokens/hop-api-url.token';
       justify-content: center;
       align-items: center;
       height: 100vh;
-      background: var(--hop-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+      background: var(--hop-gradient);
     }
     .login-card { width: 100%; max-width: 400px; padding: 20px; }
     .full-width { width: 100%; margin-bottom: 15px; }
     .button-row { display: flex; justify-content: space-between; margin-top: 20px; }
-    .error-message { color: #f44336; margin-bottom: 15px; text-align: center; }
+    .error-message { color: var(--color-error); margin-bottom: 15px; text-align: center; }
     mat-spinner { display: inline-block; margin-right: 10px; }
-    .org-select-hint { color: rgba(0,0,0,0.54); margin-bottom: 8px; }
+    .org-select-hint { color: var(--text-secondary); margin-bottom: 8px; }
     .org-list-item { cursor: pointer; }
-    .org-role { text-transform: capitalize; color: rgba(0,0,0,0.54); }
+    .org-role { text-transform: capitalize; color: var(--text-secondary); }
     .loading-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; }
     .forgot-password-row { text-align: center; margin-top: 12px; }
-    .forgot-password-link { color: var(--hop-accent, #667eea); text-decoration: none; font-size: 14px; }
+    .forgot-password-link { color: var(--text-link); text-decoration: none; font-size: 14px; }
     .sso-buttons { margin-bottom: 16px; }
     .google-btn-wrapper { display: flex; justify-content: center; margin-bottom: 8px; }
     .sso-btn { width: 100%; margin-bottom: 8px; height: 42px; }
     .sso-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
     .sso-divider mat-divider { flex: 1; }
-    .sso-divider-text { color: rgba(0,0,0,0.38); font-size: 13px; white-space: nowrap; }
+    .sso-divider-text { color: var(--text-tertiary); font-size: 13px; white-space: nowrap; }
   `],
 })
 export class HopLoginComponent implements OnInit, AfterViewInit {

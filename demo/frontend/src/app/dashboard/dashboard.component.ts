@@ -5,10 +5,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 @Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule],
-  template: `
+    selector: 'app-dashboard',
+    imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule],
+    template: `
     <div class="dashboard">
       <h1>Welcome to Hop Demo</h1>
       <p class="subtitle">
@@ -65,7 +64,7 @@ import { MatIconModule } from '@angular/material/icon';
       </div>
     </div>
   `,
-  styles: [`
+    styles: [`
     .dashboard { max-width: 1100px; margin: 0 auto; }
     h1 { margin-bottom: 8px; }
     .subtitle { color: rgba(0,0,0,0.54); margin-bottom: 32px; }
@@ -75,6 +74,6 @@ import { MatIconModule } from '@angular/material/icon';
       gap: 24px;
     }
     mat-card-content p { color: rgba(0,0,0,0.6); line-height: 1.6; }
-  `],
+  `]
 })
 export class DashboardComponent {}

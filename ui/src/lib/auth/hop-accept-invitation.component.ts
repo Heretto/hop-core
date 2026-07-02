@@ -137,22 +137,22 @@ export interface InvitationInfo {
   styles: [`
     .invitation-container {
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: var(--hop-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%)); padding: 20px;
+      background: var(--hop-gradient); padding: 20px;
     }
     .invitation-card { max-width: 500px; width: 100%; }
-    .invitation-icon { background: var(--hop-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%)); color: white; }
+    .invitation-icon { background: var(--hop-gradient); color: #fff; }
     .loading-state, .error-state, .success-state { text-align: center; padding: 40px; }
     .loading-state mat-spinner { margin: 0 auto 20px; }
     .error-state mat-icon, .success-state mat-icon { font-size: 64px; height: 64px; width: 64px; margin: 0 auto 20px; }
-    .invitation-details { margin: 20px 0 30px; padding: 20px; background: #f5f5f5; border-radius: 8px; }
+    .invitation-details { margin: 20px 0 30px; padding: 20px; background: var(--surface-sunken); border-radius: 8px; }
     .detail-item { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 15px; }
     .detail-item:last-child { margin-bottom: 0; }
-    .detail-item mat-icon { color: #666; margin-top: 2px; }
-    .detail-item label { display: block; font-size: 12px; color: #666; margin-bottom: 2px; }
-    .detail-item span { display: block; font-size: 14px; font-weight: 500; color: #333; }
+    .detail-item mat-icon { color: var(--text-secondary); margin-top: 2px; }
+    .detail-item label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 2px; }
+    .detail-item span { display: block; font-size: 14px; font-weight: 500; color: var(--text-primary); }
     .accept-form { margin-top: 30px; }
-    .accept-form h3 { margin: 0 0 10px; color: #333; }
-    .form-subtitle { color: #666; margin-bottom: 20px; }
+    .accept-form h3 { margin: 0 0 10px; color: var(--text-primary); }
+    .form-subtitle { color: var(--text-secondary); margin-bottom: 20px; }
     .full-width { width: 100%; }
     mat-form-field { margin-bottom: 16px; }
     button[type="submit"] { margin-top: 10px; height: 48px; }

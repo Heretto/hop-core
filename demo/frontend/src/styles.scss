@@ -1,14 +1,5 @@
-@use '@angular/material' as mat;
+// hop-ui design system — a single include themes the whole app (tokens,
+// Material M3 theme + bridge, base styles, component overrides).
 @use '../../../ui/src/lib/theme/index' as hop;
-
-html,
-body {
-  height: 100%;
-  margin: 0;
-}
-
-body {
-  font-family: Roboto, 'Helvetica Neue', sans-serif;
-}
 
 @include hop.hop-core-theme();

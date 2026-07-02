@@ -1,0 +1,325 @@
+// =============================================================================
+// Angular Material (M3) layer — hop-ui
+// -----------------------------------------------------------------------------
+// Emits Material's --mat-sys-* system tokens via mat.theme(), bridges the
+// brand-critical ones to the hop-ui design tokens, then overrides component
+// geometry/color to the design language. Light theme active; the dark
+// mat.theme() block is inert until [data-theme="dark"] is set.
+// =============================================================================
+
+@use '@angular/material' as mat;
+@use 'variables' as *;
+
+@mixin hop-material {
+  // M3 theme — primary navy (bridged below), tertiary magenta, teal via tokens.
+  html {
+    color-scheme: light;
+    @include mat.theme((
+      color: (
+        theme-type: light,
+        primary: mat.$azure-palette,
+        tertiary: mat.$magenta-palette,
+      ),
+      typography: Inter,
+      density: -1,
+    ));
+  }
+
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    @include mat.theme((
+      color: (
+        theme-type: dark,
+        primary: mat.$azure-palette,
+        tertiary: mat.$magenta-palette,
+      ),
+    ));
+  }
+
+  // Bridge Material's system tokens to the hop-ui design tokens so every
+  // Material widget sits on the same surfaces/brand as the rest of the app.
+  html,
+  html[data-theme="dark"] {
+    --mat-sys-primary: var(--color-primary);
+    --mat-sys-primary-fixed: var(--color-primary);
+    --mat-sys-surface: var(--bg-primary);
+    --mat-sys-surface-container-lowest: var(--surface-sunken);
+    --mat-sys-surface-container-low: var(--surface-default);
+    --mat-sys-surface-container: var(--surface-raised);
+    --mat-sys-surface-container-high: var(--bg-elevated);
+    --mat-sys-outline-variant: var(--border-default);
+  }
+
+  // Modern button geometry: 8px rects instead of M3 pills.
+  html {
+    --mdc-filled-button-container-shape: 8px;
+    --mdc-outlined-button-container-shape: 8px;
+    --mdc-text-button-container-shape: 8px;
+    --mdc-protected-button-container-shape: 8px;
+
+    // Compact, consistent form-field height.
+    --mat-form-field-container-height: 44px;
+    --mat-form-field-container-vertical-padding: 10px;
+    --mdc-outlined-text-field-container-shape: 8px;
+    --mdc-filled-text-field-container-shape: 8px;
+  }
+
+  // Material Symbols Rounded (when used): outlined look, light weight, no fill.
+  .material-symbols-rounded {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Component overrides
+  // ---------------------------------------------------------------------------
+
+  // Cards: surface + hairline border, no drop shadow; depth = surface step.
+  .mat-mdc-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: $radius-lg;
+    box-shadow: none !important;
+  }
+
+  // Buttons
+  .mat-mdc-button,
+  .mat-mdc-raised-button,
+  .mat-mdc-unelevated-button,
+  .mat-mdc-outlined-button {
+    font-family: $font-family-primary;
+    font-weight: $font-weight-medium;
+    letter-spacing: $letter-spacing-normal;
+    border-radius: $radius-md;
+  }
+
+  .mat-mdc-outlined-button {
+    --mdc-outlined-button-outline-color: var(--border-strong);
+    color: var(--text-primary);
+    transition: background-color 120ms ease, border-color 120ms ease;
+
+    &:hover:not([disabled]) { background: var(--hover-overlay); }
+  }
+
+  .mat-mdc-unelevated-button,
+  .mat-mdc-raised-button {
+    transition: filter 120ms ease;
+
+    &:hover:not([disabled]) { filter: brightness(1.12); }
+  }
+
+  // Icon buttons
+  .mat-mdc-icon-button {
+    color: var(--text-secondary);
+
+    &:hover:not([disabled]) {
+      color: var(--text-primary);
+      background-color: var(--hover-overlay);
+    }
+  }
+
+  // Form fields
+  .mat-mdc-form-field { font-family: $font-family-primary; }
+
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled) {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__notch,
+    .mdc-notched-outline__trailing {
+      border-color: var(--input-border);
+    }
+    // Keep the notch's vertical edges invisible (only top/bottom form the box).
+    .mdc-notched-outline__notch {
+      border-left-color: transparent;
+      border-right-color: transparent;
+    }
+  }
+
+  .mdc-text-field--outlined:not(.mdc-text-field--disabled):not(.mdc-text-field--focused):hover {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__notch,
+    .mdc-notched-outline__trailing {
+      border-color: var(--border-strong);
+    }
+    .mdc-notched-outline__notch {
+      border-left-color: transparent;
+      border-right-color: transparent;
+    }
+  }
+
+  // Menus / selects / autocomplete / dialogs sit on the elevated surface.
+  .mat-mdc-menu-panel,
+  div.mat-mdc-select-panel,
+  .mat-mdc-autocomplete-panel {
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border-default);
+    border-radius: $radius-md;
+  }
+
+  .mat-mdc-menu-item,
+  .mat-mdc-option {
+    color: var(--text-primary);
+
+    &:hover:not([disabled]):not(.mdc-list-item--disabled) {
+      background-color: var(--hover-overlay);
+    }
+  }
+
+  .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+    background-color: var(--color-primary-bg);
+  }
+
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    background: var(--bg-elevated) !important;
+    border: 1px solid var(--border-default);
+    border-radius: 14px !important;
+  }
+
+  // Checkbox
+  .mat-mdc-checkbox {
+    .mdc-checkbox__background { border-color: var(--border-strong) !important; }
+
+    &.mat-mdc-checkbox-checked .mdc-checkbox__background {
+      background-color: var(--color-primary) !important;
+      border-color: var(--color-primary) !important;
+    }
+  }
+
+  // Chips
+  .mat-mdc-chip {
+    background-color: var(--button-secondary-bg) !important;
+    color: var(--text-primary) !important;
+    border-radius: $radius-full !important;
+  }
+
+  // Progress spinner / bar
+  .mat-mdc-progress-spinner circle { stroke: var(--color-primary) !important; }
+  .mat-mdc-progress-bar {
+    .mdc-linear-progress__bar-inner { border-color: var(--color-primary); }
+    .mdc-linear-progress__buffer-bar { background-color: var(--color-primary-bg); }
+  }
+
+  // Tabs: teal-accent underline, quiet inactive labels.
+  .mat-mdc-tab-group,
+  .mat-mdc-tab-nav-bar {
+    .mat-mdc-tab, .mat-mdc-tab-link {
+      color: var(--text-secondary);
+
+      &.mdc-tab--active { color: var(--color-primary); }
+    }
+    .mdc-tab-indicator__content--underline { border-color: var(--color-accent); }
+
+    .mdc-tab__text-label {
+      font-weight: 500;
+      letter-spacing: -0.006em;
+    }
+  }
+
+  // Tooltip / snackbar
+  .mat-mdc-tooltip {
+    font-family: $font-family-primary;
+    font-size: $font-size-sm;
+  }
+  .mat-mdc-snack-bar-container {
+    .mdc-snackbar__surface {
+      background-color: var(--bg-inverse) !important;
+      color: var(--text-inverse) !important;
+      border-radius: $radius-md !important;
+    }
+  }
+
+  // Divider
+  .mat-divider { border-color: var(--border-default); }
+
+  // Expansion panel
+  .mat-expansion-panel {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: none !important;
+
+    &:not(.mat-expanded) { border-radius: $radius-md !important; }
+  }
+  .mat-expansion-panel-header {
+    font-family: $font-family-primary;
+
+    &:hover:not([aria-disabled="true"]) { background-color: var(--hover-overlay); }
+  }
+
+  // Slide toggle
+  .mat-mdc-slide-toggle {
+    .mdc-switch__track { background-color: var(--border-strong); }
+
+    &.mat-mdc-slide-toggle-checked .mdc-switch__track {
+      background-color: var(--color-primary) !important;
+    }
+  }
+
+  // Tables: quiet header row, hairline dividers.
+  .mat-mdc-table {
+    background: transparent !important;
+
+    .mat-mdc-header-cell {
+      color: var(--text-tertiary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom-color: var(--border-default);
+    }
+    .mat-mdc-cell { border-bottom-color: var(--border-light); }
+    .mat-mdc-row:hover .mat-mdc-cell { background: var(--hover-overlay); }
+  }
+
+  // Button-toggle groups: rectangular, compact, hairline — no pills.
+  .mat-button-toggle-group {
+    --mat-standard-button-toggle-shape: 8px;
+    --mat-standard-button-toggle-height: 36px;
+    border-radius: 8px !important;
+    border: 1px solid var(--border-strong) !important;
+    overflow: hidden;
+
+    .mat-button-toggle {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    .mat-button-toggle-checked {
+      background: var(--color-primary-bg);
+      color: var(--color-primary);
+    }
+    .mat-button-toggle + .mat-button-toggle { border-left: 1px solid var(--border-default); }
+  }
+
+  // Raw <select> elements: match the field language.
+  select {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.86rem;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mobile / responsive guardrails
+  // ---------------------------------------------------------------------------
+  @media (max-width: 768px) {
+    html, body { overflow-x: hidden; }
+
+    .cdk-overlay-pane.mat-mdc-dialog-panel { max-width: calc(100vw - 24px) !important; }
+    .mat-mdc-dialog-container .mat-mdc-dialog-surface { max-width: 100%; }
+
+    .mat-mdc-menu-panel,
+    .cdk-overlay-pane .mat-mdc-autocomplete-panel,
+    .cdk-overlay-pane .mat-mdc-select-panel {
+      max-width: calc(100vw - 24px) !important;
+    }
+
+    // Generous tap targets toward the 44px guideline.
+    .mat-mdc-icon-button.mat-mdc-button-base {
+      --mdc-icon-button-state-layer-size: 44px;
+      width: 44px;
+      height: 44px;
+      padding: 10px;
+    }
+  }
+}
