@@ -9,5 +9,6 @@ import { HopMainLayoutComponent, NavItem } from '@heretto/hop-ui';
 export class ShellComponent {
   navItems: NavItem[] = [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
+    { label: 'Widget Library', route: '/widgets', icon: 'widgets' },
   ];
 }

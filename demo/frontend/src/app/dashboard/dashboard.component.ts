@@ -61,6 +61,23 @@ import { MatIconModule } from '@angular/material/icon';
             <a mat-button color="primary" routerLink="/account">My Account</a>
           </mat-card-actions>
         </mat-card>
+
+        <mat-card class="feature-card">
+          <mat-card-header>
+            <mat-icon mat-card-avatar>widgets</mat-icon>
+            <mat-card-title>Widget Library</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>
+              A living reference of the UI building blocks in hop-core — color tokens,
+              typography, buttons, forms, tables, dialogs, and more — all driven by the
+              &#64;heretto/hop-ui design system.
+            </p>
+          </mat-card-content>
+          <mat-card-actions>
+            <a mat-button color="primary" routerLink="/widgets">Browse Widgets</a>
+          </mat-card-actions>
+        </mat-card>
       </div>
     </div>
   `,
