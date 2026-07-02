@@ -134,7 +134,7 @@ import { HOP_API_URL } from '../tokens/hop-api-url.token';
       background: var(--hop-gradient);
     }
     .login-card { width: 100%; max-width: 400px; padding: 20px; }
-    .full-width { width: 100%; margin-bottom: 15px; }
+    .full-width { width: 100%; }
     .button-row { display: flex; justify-content: space-between; margin-top: 20px; }
     .error-message { color: var(--color-error); margin-bottom: 15px; text-align: center; }
     mat-spinner { display: inline-block; margin-right: 10px; }

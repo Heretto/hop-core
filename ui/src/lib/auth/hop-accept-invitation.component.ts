@@ -154,7 +154,6 @@ export interface InvitationInfo {
     .accept-form h3 { margin: 0 0 10px; color: var(--text-primary); }
     .form-subtitle { color: var(--text-secondary); margin-bottom: 20px; }
     .full-width { width: 100%; }
-    mat-form-field { margin-bottom: 16px; }
     button[type="submit"] { margin-top: 10px; height: 48px; }
     button mat-spinner { display: inline-block; margin-right: 8px; }
   `],

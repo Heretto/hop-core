@@ -189,7 +189,8 @@ Apply the design system. It ships with `@heretto/hop-ui` (Angular 19 / Material
 M3) — two steps give every hop-core app a consistent look and feel:
 
 **a. Load the fonts** in your `src/index.html` `<head>` (Inter, Roboto Mono,
-Material Symbols Rounded — and Material Icons if you use `<mat-icon>` ligatures):
+Material Symbols Rounded — the theme points `<mat-icon>` at the Symbols face,
+so icons render in the light, unfilled line style):
 
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,7 +198,6 @@ Material Symbols Rounded — and Material Icons if you use `<mat-icon>` ligature
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block" rel="stylesheet">
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 ```
 
 **b. Include the theme** in your global stylesheet — one mixin themes the whole

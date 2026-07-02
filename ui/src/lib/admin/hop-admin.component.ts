@@ -181,7 +181,7 @@ import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-di
   styles: [`
     .admin-container { max-width: 1200px; margin: 0 auto; }
     .org-info-card { margin-bottom: 24px; }
-    .full-width { width: 100%; margin-bottom: 16px; }
+    .full-width { width: 100%; }
     .tab-content { padding: 24px; }
     .members-header, .invitations-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .members-table, .invitations-table { width: 100%; background: transparent; }

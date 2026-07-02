@@ -52,7 +52,7 @@ import { HopAuthService } from './hop-auth.service';
       background: var(--hop-gradient);
     }
     .forgot-card { width: 100%; max-width: 400px; padding: 20px; }
-    .full-width { width: 100%; margin-bottom: 15px; }
+    .full-width { width: 100%; }
     .hint { color: var(--text-secondary); margin-bottom: 16px; }
     .button-row { display: flex; justify-content: center; margin-top: 20px; }
     .error-message { color: var(--color-error); margin-bottom: 15px; text-align: center; }

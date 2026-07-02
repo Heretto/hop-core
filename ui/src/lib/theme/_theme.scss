@@ -18,6 +18,14 @@
   @include base.hop-base;
   @include material.hop-material;
 
+  // Card variants: a normal mat-card is a quiet hairline-bordered surface.
+  // Add .hop-card-accent for an emphasis card with a colored left edge (the
+  // active/highlighted item in a stack). Defaults to the teal accent;
+  // override per instance via --hop-card-accent-color.
+  .mat-mdc-card.hop-card-accent {
+    border-left: 4px solid var(--hop-card-accent-color, var(--color-accent));
+  }
+
   // hop-ui utility classes that host apps rely on.
   .hop-status-message {
     margin-top: $spacing-3;

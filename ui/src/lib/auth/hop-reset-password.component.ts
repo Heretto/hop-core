@@ -64,7 +64,7 @@ import { HopAuthService } from './hop-auth.service';
       background: var(--hop-gradient);
     }
     .reset-card { width: 100%; max-width: 400px; padding: 20px; }
-    .full-width { width: 100%; margin-bottom: 15px; }
+    .full-width { width: 100%; }
     .button-row { display: flex; justify-content: center; margin-top: 20px; }
     .error-message { color: var(--color-error); margin-bottom: 15px; text-align: center; }
     .success-message { color: var(--color-success); text-align: center; }

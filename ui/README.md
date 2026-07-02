@@ -16,7 +16,8 @@ API and the `--mat-sys-*` system-token bridge).
 Two steps (see the root README for copy-paste snippets):
 
 1. **Fonts** — add Inter, Roboto Mono, and Material Symbols Rounded to
-   `index.html` (plus Material Icons if you use `<mat-icon>` ligatures).
+   `index.html`. The theme re-points `<mat-icon>` at the Symbols face, so all
+   icons render in the light, unfilled line style (same ligature names).
 2. **Theme** — `@include hop.hop-core-theme();` once in your global `styles.scss`.
 
 That single mixin emits everything: the semantic tokens, the Material M3 theme +
@@ -34,6 +35,17 @@ hardcoding colors. This is what keeps apps consistent and theme-ready.
 
 // ✓ — semantic tokens
 .card { background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border-default); }
+```
+
+## Card variants
+
+`mat-card` renders as a quiet hairline-bordered surface. Add `hop-card-accent`
+for an emphasis card with a colored left edge (the active/highlighted item in a
+stack). The edge defaults to the teal accent; override per instance:
+
+```html
+<mat-card class="hop-card-accent">…</mat-card>
+<mat-card class="hop-card-accent" style="--hop-card-accent-color: var(--color-warning)">…</mat-card>
 ```
 
 ## Token vocabulary

@@ -130,6 +130,53 @@ interface MemberRow {
         </mat-card>
       </section>
 
+      <!-- CARDS ----------------------------------------------------------- -->
+      <section>
+        <h2>Cards</h2>
+        <p class="section-note">
+          Two kinds: a <strong>normal card</strong> — a quiet hairline-bordered
+          surface — and an <strong>accent card</strong>
+          (<code>hop-card-accent</code>) whose colored left edge marks the
+          active or highlighted item. The edge defaults to the teal accent and
+          can be overridden per instance via
+          <code>--hop-card-accent-color</code>.
+        </p>
+        <div class="card-stack">
+          <mat-card class="demo-card">
+            <mat-card-content>
+              <h4 class="card-title">Normal card</h4>
+              <p class="text-secondary card-body">
+                The default surface for grouped content — hairline border on
+                every side, no shadow.
+              </p>
+              <span class="card-meta">Added Jun 13, 2026 · original page</span>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="demo-card hop-card-accent">
+            <mat-card-content>
+              <h4 class="card-title">Accent card</h4>
+              <p class="text-secondary card-body">
+                The teal left edge draws the eye to the selected or most
+                relevant item in a stack.
+              </p>
+              <span class="card-meta">Added Jun 13, 2026 · original page</span>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="demo-card hop-card-accent" style="--hop-card-accent-color: var(--color-warning)">
+            <mat-card-content>
+              <h4 class="card-title">Accent card — custom color</h4>
+              <p class="text-secondary card-body">
+                Re-point the edge at any status token, e.g.
+                <code>--hop-card-accent-color: var(--color-warning)</code>.
+              </p>
+              <span class="card-meta">Added Jun 13, 2026 · original page</span>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </section>
+
       <!-- BUTTONS --------------------------------------------------------- -->
       <section>
         <h2>Buttons</h2>
@@ -427,8 +474,13 @@ interface MemberRow {
     }
     .section-note { color: var(--text-secondary); margin-bottom: 16px; }
 
-    .demo-card { border: 1px solid var(--card-border); }
     .demo-card.no-pad .mat-mdc-card { padding: 0; }
+
+    /* Cards */
+    .card-stack { display: flex; flex-direction: column; gap: 12px; }
+    .card-title { margin-bottom: 4px; }
+    .card-body { margin-bottom: 8px; }
+    .card-meta { font-size: 0.78rem; color: var(--text-tertiary); }
     .row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
     mat-divider { margin: 20px 0; }
 
