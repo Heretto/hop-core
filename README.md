@@ -211,8 +211,11 @@ and component overrides):
 @include hop.hop-core-theme();
 ```
 
-See [`ui/README.md`](ui/README.md) for the design-system reference: tokens,
-theming, and the "consume tokens, don't invent them" rule.
+**[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) is the complete, self-contained
+design-system reference** — every token with its value, the full component/API
+inventory, a copy-paste app skeleton, and the do/don't rules. Written for both
+humans and AI coding agents, so nothing requires scanning the source.
+[`ui/README.md`](ui/README.md) is the shorter orientation doc.
 
 ---
 

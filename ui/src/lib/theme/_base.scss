@@ -126,6 +126,13 @@
     outline: none;
     box-shadow: var(--focus-ring);
   }
+  // Material text controls provide their own focus affordance (outline color
+  // change + floating label) — the global ring would draw a teal box inside
+  // the field.
+  .mat-mdc-input-element:focus-visible,
+  .mat-mdc-select:focus-visible {
+    box-shadow: none;
+  }
   // Visible, branded focus for keyboard users on non-Material elements.
   a:focus-visible,
   button:focus-visible:not([class*='mat-']),

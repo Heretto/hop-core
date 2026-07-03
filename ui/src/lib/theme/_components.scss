@@ -1,0 +1,200 @@
+// =============================================================================
+// hop-ui component classes
+// -----------------------------------------------------------------------------
+// Reusable, token-driven UI patterns that sit above raw Material widgets:
+// status chips, stat cards, icon badges, code/query panels, shimmer. Added so
+// apps never re-implement these with per-component overrides. Emitted from
+// hop-core-theme() via the hop-components mixin.
+// =============================================================================
+
+@use 'variables' as *;
+
+@mixin hop-components {
+  // ---------------------------------------------------------------------------
+  // Status chips — job/entity lifecycle states.
+  // On <mat-chip>: add the state class alone. On a plain <span>: add
+  // .hop-status-chip for the pill shape plus the state class for color.
+  // (!important is deliberate: it outranks both Material's chip fill and the
+  // theme's own base chip override, so apps never need their own !important.)
+  // ---------------------------------------------------------------------------
+  .hop-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: $radius-full;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.6;
+    background: var(--button-secondary-bg);
+    color: var(--text-secondary);
+  }
+
+  .hop-status-chip-pending {
+    background-color: var(--color-warning-bg) !important;
+    color: var(--color-warning-text) !important;
+    --mdc-chip-label-text-color: var(--color-warning-text);
+  }
+  .hop-status-chip-running {
+    background-color: var(--color-info-bg) !important;
+    color: var(--color-info-text) !important;
+    --mdc-chip-label-text-color: var(--color-info-text);
+  }
+  .hop-status-chip-completed {
+    background-color: var(--color-success-bg) !important;
+    color: var(--color-success-text) !important;
+    --mdc-chip-label-text-color: var(--color-success-text);
+  }
+  .hop-status-chip-failed {
+    background-color: var(--color-error-bg) !important;
+    color: var(--color-error-text) !important;
+    --mdc-chip-label-text-color: var(--color-error-text);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Icon badge — colored circle around an icon (stat cards, list markers).
+  // Color families: default (primary navy), .accent, .success, .warning,
+  // .error, .info.
+  // ---------------------------------------------------------------------------
+  .hop-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+
+    &.accent  { background: var(--color-accent-bg);  color: var(--color-accent-text); }
+    &.success { background: var(--color-success-bg); color: var(--color-success); }
+    &.warning { background: var(--color-warning-bg); color: var(--color-warning); }
+    &.error   { background: var(--color-error-bg);   color: var(--color-error); }
+    &.info    { background: var(--color-info-bg);    color: var(--color-info); }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stat / metric card — icon badge + big value + quiet label, laid out in a
+  // row. Use on <mat-card> (inherits themed surface) or a plain <div> (the
+  // fallback surface below matches).
+  //   <mat-card class="hop-stat-card">
+  //     <span class="hop-icon-badge success"><mat-icon>check_circle</mat-icon></span>
+  //     <div><span class="hop-stat-value">128</span>
+  //          <span class="hop-stat-label">Completed</span></div>
+  //   </mat-card>
+  // ---------------------------------------------------------------------------
+  // The doubled selector outranks Material's .mat-mdc-card (flex-direction:
+  // column), which ties a single class and loads later.
+  .hop-stat-card,
+  .mat-mdc-card.hop-stat-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: $spacing-3;
+    padding: $spacing-4;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: $radius-lg;
+  }
+
+  .hop-stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: $font-weight-semibold;
+    line-height: 1.2;
+    color: var(--text-primary);
+  }
+
+  .hop-stat-label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dark code panel — VS Code-style code viewer that stays dark in BOTH themes
+  // (log/diff/test output). Driven by the theme-invariant --code-panel-*
+  // tokens. Inner <pre>/<code> reset so the light-surface code styling from
+  // the base layer doesn't leak in.
+  // ---------------------------------------------------------------------------
+  .hop-code-panel {
+    background: var(--code-panel-bg);
+    color: var(--code-panel-text);
+    border: 1px solid var(--code-panel-border);
+    border-radius: $radius-md;
+    padding: $spacing-4;
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    line-height: 1.6;
+
+    pre, code {
+      background: none;
+      color: inherit;
+      padding: 0;
+      margin: 0;
+      font-size: inherit;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query block — labeled monospace query display (JQL, SQL, search DSL).
+  //   <div class="hop-query-block">
+  //     <span class="hop-query-block-label">JQL</span>
+  //     <code>project = REL ORDER BY priority</code>
+  //   </div>
+  // ---------------------------------------------------------------------------
+  .hop-query-block {
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-default);
+    border-radius: $radius-md;
+    padding: $spacing-3 $spacing-4;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+
+    code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+  }
+
+  .hop-query-block-label {
+    display: block;
+    margin-bottom: 6px;
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shimmer — animated brand-teal sweep for running/loading rows. Rides over
+  // the element's own background; tint adjustable via --hop-shimmer-tint.
+  // ---------------------------------------------------------------------------
+  @keyframes hop-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .hop-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--hop-shimmer-tint, var(--color-accent-bg)) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: hop-shimmer 1.8s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hop-shimmer { animation: none; }
+  }
+}

@@ -261,5 +261,11 @@
     --hop-success-text: var(--color-success-text);
     --hop-error-bg: var(--color-error-bg);
     --hop-error-text: var(--color-error-text);
+
+    // Dark code panel (.hop-code-panel) — theme-INVARIANT: a VS Code-style
+    // surface that stays dark in both light and dark themes.
+    --code-panel-bg: #1e1e1e;
+    --code-panel-text: #d4d4d4;
+    --code-panel-border: rgba(255, 255, 255, 0.1);
   }
 }

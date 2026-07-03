@@ -1,5 +1,10 @@
 # @heretto/hop-ui — design system
 
+> **Building an app on hop-core?** Read [`DESIGN-SYSTEM.md`](../DESIGN-SYSTEM.md)
+> at the repo root — the complete, self-contained reference (all tokens with
+> values, full component/API inventory, app skeleton, rules). This file is the
+> short orientation.
+
 The shared Angular UI library for hop-core apps. Beyond the auth/layout/admin
 components, it ships a **design system**: a CSS-variable token layer plus Angular
 Material (M3) overrides that give every hop-core app a consistent look and feel.

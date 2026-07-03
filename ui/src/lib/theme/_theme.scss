@@ -12,11 +12,13 @@
 @use 'tokens';
 @use 'base';
 @use 'material';
+@use 'components';
 
 @mixin hop-core-theme() {
   @include tokens.hop-tokens;
   @include base.hop-base;
   @include material.hop-material;
+  @include components.hop-components;
 
   // Card variants: a normal mat-card is a quiet hairline-bordered surface.
   // Add .hop-card-accent for an emphasis card with a colored left edge (the

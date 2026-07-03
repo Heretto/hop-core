@@ -243,6 +243,15 @@
     border-radius: 14px !important;
   }
 
+  // Material's M3 theming caps every dialog panel at 560px
+  // (--mat-dialog-container-max-width). The prebuilt M2 theme used 80vw, so apps
+  // that open a dialog with an explicit width (e.g. { width: '800px' }) were
+  // silently clamped after migrating. Restore the roomier desktop cap; the
+  // mobile guardrails below still override this with !important on small screens.
+  .cdk-overlay-pane.mat-mdc-dialog-panel {
+    --mat-dialog-container-max-width: 80vw;
+  }
+
   // Checkbox
   .mat-mdc-checkbox {
     .mdc-checkbox__background { border-color: var(--border-strong) !important; }

@@ -177,6 +177,72 @@ interface MemberRow {
         </div>
       </section>
 
+      <!-- STAT CARDS ------------------------------------------------------ -->
+      <section>
+        <h2>Stat cards</h2>
+        <p class="section-note">
+          Dashboard metrics: <code>hop-stat-card</code> lays out a colored
+          <code>hop-icon-badge</code> next to a <code>hop-stat-value</code> +
+          <code>hop-stat-label</code>. Badge families: default (navy),
+          <code>accent</code>, <code>success</code>, <code>warning</code>,
+          <code>error</code>, <code>info</code>.
+        </p>
+        <div class="stat-grid">
+          <mat-card class="hop-stat-card">
+            <span class="hop-icon-badge"><mat-icon>stacks</mat-icon></span>
+            <div>
+              <span class="hop-stat-value">4,321</span>
+              <span class="hop-stat-label">Total jobs</span>
+            </div>
+          </mat-card>
+          <mat-card class="hop-stat-card">
+            <span class="hop-icon-badge info"><mat-icon>sync</mat-icon></span>
+            <div>
+              <span class="hop-stat-value">12</span>
+              <span class="hop-stat-label">Running</span>
+            </div>
+          </mat-card>
+          <mat-card class="hop-stat-card">
+            <span class="hop-icon-badge success"><mat-icon>check_circle</mat-icon></span>
+            <div>
+              <span class="hop-stat-value">4,187</span>
+              <span class="hop-stat-label">Completed</span>
+            </div>
+          </mat-card>
+          <mat-card class="hop-stat-card">
+            <span class="hop-icon-badge error"><mat-icon>error</mat-icon></span>
+            <div>
+              <span class="hop-stat-value">23</span>
+              <span class="hop-stat-label">Failed</span>
+            </div>
+          </mat-card>
+        </div>
+      </section>
+
+      <!-- CODE & QUERY DISPLAY -------------------------------------------- -->
+      <section>
+        <h2>Code &amp; query display</h2>
+        <p class="section-note">
+          <code>hop-code-panel</code> is a VS Code-style viewer that stays dark
+          in both themes (logs, diffs, test output).
+          <code>hop-query-block</code> is a labeled monospace query display
+          (JQL, SQL, search DSL) on the light sunken surface.
+        </p>
+        <div class="panel-stack">
+          <div class="hop-code-panel">
+            <pre>FAILED tests/test_release_notes.py::test_grouping
+  AssertionError: expected 3 sections, got 2
+    - Features (4 items)
+    - Bug fixes (7 items)
+  2 passed, 1 failed in 0.42s</pre>
+          </div>
+          <div class="hop-query-block">
+            <span class="hop-query-block-label">JQL</span>
+            <code>project = REL AND fixVersion = "1.2.0" AND status = Done ORDER BY priority DESC</code>
+          </div>
+        </div>
+      </section>
+
       <!-- BUTTONS --------------------------------------------------------- -->
       <section>
         <h2>Buttons</h2>
@@ -285,6 +351,20 @@ interface MemberRow {
               </mat-chip>
             </mat-chip-set>
             <mat-divider></mat-divider>
+            <p class="section-note">
+              Status chips (<code>hop-status-chip-*</code>) — lifecycle states
+              driven by the status tokens. Add the state class to a
+              <code>mat-chip</code>, or pair it with <code>hop-status-chip</code>
+              on a plain <code>span</code>:
+            </p>
+            <div class="row">
+              <mat-chip class="hop-status-chip-pending">Pending</mat-chip>
+              <mat-chip class="hop-status-chip-running">Running</mat-chip>
+              <mat-chip class="hop-status-chip-completed">Completed</mat-chip>
+              <mat-chip class="hop-status-chip-failed">Failed</mat-chip>
+              <span class="hop-status-chip hop-status-chip-running">span variant</span>
+            </div>
+            <mat-divider></mat-divider>
             <div class="row badge-row">
               <button mat-stroked-button matBadge="4" matBadgeColor="warn">Inbox</button>
               <mat-icon matBadge="12" matBadgeColor="accent">notifications</mat-icon>
@@ -332,6 +412,17 @@ interface MemberRow {
               <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
             <mat-progress-bar mode="determinate" [value]="seats * 2"></mat-progress-bar>
+            <mat-divider></mat-divider>
+            <p class="section-note">
+              <code>hop-shimmer</code> — an animated teal sweep for
+              running-state rows (tint adjustable via
+              <code>--hop-shimmer-tint</code>):
+            </p>
+            <div class="job-row hop-shimmer">
+              <mat-icon class="text-secondary">sync</mat-icon>
+              <span>Publishing release notes for 1.2.0…</span>
+              <span class="hop-status-chip hop-status-chip-running">Running</span>
+            </div>
           </mat-card-content>
         </mat-card>
       </section>
@@ -481,6 +572,17 @@ interface MemberRow {
     .card-title { margin-bottom: 4px; }
     .card-body { margin-bottom: 8px; }
     .card-meta { font-size: 0.78rem; color: var(--text-tertiary); }
+
+    /* Stat cards / panels / shimmer demos */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .panel-stack { display: flex; flex-direction: column; gap: 16px; }
+    .job-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; margin-top: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-default); border-radius: 8px;
+    }
+    .job-row span:first-of-type { flex: 1; }
     .row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
     mat-divider { margin: 20px 0; }
 
