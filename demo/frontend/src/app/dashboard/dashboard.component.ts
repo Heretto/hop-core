@@ -28,6 +28,9 @@ import { MatIconModule } from '@angular/material/icon';
               control — all wired up and ready.
             </p>
           </mat-card-content>
+          <mat-card-actions>
+            <a mat-button color="primary" routerLink="/docs/auth">Learn More</a>
+          </mat-card-actions>
         </mat-card>
 
         <mat-card class="feature-card">
