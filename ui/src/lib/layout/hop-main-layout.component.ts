@@ -33,8 +33,19 @@ import { NavItem } from './nav-item.model';
     <div class="layout-shell">
       <mat-toolbar class="top-bar">
         <a class="brand" routerLink="/">
-          <mat-icon class="brand-mark">hub</mat-icon>
-          <span class="brand-name">{{ appTitle }}</span>
+          <ng-container *ngIf="logoSrc; else brandText">
+            <!-- Decorative alt when the name renders beside it; otherwise the
+                 logo carries the accessible label. -->
+            <img class="brand-logo" [src]="logoSrc" [alt]="appTitle ? '' : 'Home'" />
+            <ng-container *ngIf="appTitle">
+              <span class="brand-sep"></span>
+              <span class="brand-name">{{ appTitle }}</span>
+            </ng-container>
+          </ng-container>
+          <ng-template #brandText>
+            <mat-icon class="brand-mark">hub</mat-icon>
+            <span class="brand-name">{{ appTitle }}</span>
+          </ng-template>
         </a>
         <span class="spacer"></span>
 
@@ -145,6 +156,8 @@ import { NavItem } from './nav-item.model';
       font-weight: 600; font-size: 1.1rem; letter-spacing: -0.01em;
     }
     .brand:hover { text-decoration: none; color: var(--text-primary); }
+    .brand-logo { display: block; height: 36px; width: auto; }
+    .brand-sep { width: 1px; height: 22px; flex: none; background: var(--border-default); margin: 0 2px; }
     .brand-mark { color: var(--color-accent); }
     .spacer { flex: 1 1 auto; }
 
@@ -188,6 +201,10 @@ import { NavItem } from './nav-item.model';
 })
 export class HopMainLayoutComponent implements OnInit {
   @Input() appTitle = 'App';
+  /** Brand image for the top bar (e.g. 'assets/logo.png'). Rendered at the
+   *  far left; when appTitle is also set, the name appears beside it after a
+   *  thin divider. Set appTitle to '' for a logo-only brand. */
+  @Input() logoSrc?: string;
   @Input() navItems: NavItem[] = [];
 
   private authService = inject(HopAuthService);

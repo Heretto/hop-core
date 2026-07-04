@@ -369,7 +369,7 @@ Everything importable from `@heretto/hop-ui`:
 | `HopResetPasswordComponent` | `hop-reset-password` | Token-based password reset | — |
 | `HopSSOCallbackComponent` | `hop-sso-callback` | OAuth redirect completion | — |
 | `HopAcceptInvitationComponent` | `hop-accept-invitation` | Accept org invitation (`/invite/:token`) | — |
-| `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet | `appTitle: string`, `navItems: NavItem[]` |
+| `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet | `appTitle: string`, `logoSrc?: string` (brand image, 36px tall, far left; with `appTitle` set the app name renders beside it after a thin divider — set `appTitle=""` for logo-only; without `logoSrc` the brand falls back to icon + name), `navItems: NavItem[]` |
 | `HopAccountComponent` | `hop-account` | Profile editor (email, password, delete) | — |
 | `HopAdminComponent` | `hop-admin` | Org admin: members + invitations tabs | — |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
@@ -504,7 +504,8 @@ import { HopMainLayoutComponent, NavItem } from '@heretto/hop-ui';
 @Component({
   selector: 'app-shell',
   imports: [HopMainLayoutComponent],
-  template: `<hop-main-layout appTitle="My App" [navItems]="navItems"></hop-main-layout>`,
+  // logoSrc is optional — omit it to show a hub icon + appTitle text instead.
+  template: `<hop-main-layout appTitle="My App" logoSrc="assets/my-logo.png" [navItems]="navItems"></hop-main-layout>`,
 })
 export class ShellComponent {
   navItems: NavItem[] = [

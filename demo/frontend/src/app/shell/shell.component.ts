@@ -4,7 +4,7 @@ import { HopMainLayoutComponent, NavItem } from '@heretto/hop-ui';
 @Component({
     selector: 'app-shell',
     imports: [HopMainLayoutComponent],
-    template: `<hop-main-layout appTitle="Hop Demo" [navItems]="navItems"></hop-main-layout>`
+    template: `<hop-main-layout appTitle="Hop Demo" logoSrc="assets/heretto_open_projects.png" [navItems]="navItems"></hop-main-layout>`
 })
 export class ShellComponent {
   navItems: NavItem[] = [
