@@ -1,35 +1,43 @@
-@use '@angular/material' as mat;
-@use 'variables' as vars;
+// =============================================================================
+// hop-ui theme entry point
+// -----------------------------------------------------------------------------
+// Host apps include a single mixin in their global styles:
+//   @use 'path/to/ui/src/lib/theme/index' as hop;
+//   @include hop.hop-core-theme();
+// Everything (tokens, Material M3 theme + bridge, base styles, overrides) is
+// emitted from here so nothing renders until the app opts in.
+// =============================================================================
 
-// Define the hop-core palette (indigo/purple-blue brand)
-$hop-primary-palette: mat.define-palette(mat.$indigo-palette);
-$hop-accent-palette:  mat.define-palette(mat.$deep-purple-palette, A200, A100, A400);
-$hop-warn-palette:    mat.define-palette(mat.$red-palette);
-
-$hop-theme: mat.define-light-theme((
-  color: (
-    primary: $hop-primary-palette,
-    accent:  $hop-accent-palette,
-    warn:    $hop-warn-palette,
-  ),
-  typography: mat.define-typography-config(),
-  density: 0,
-));
+@use 'variables' as *;
+@use 'tokens';
+@use 'base';
+@use 'material';
+@use 'components';
 
 @mixin hop-core-theme() {
-  @include mat.all-component-themes($hop-theme);
+  @include tokens.hop-tokens;
+  @include base.hop-base;
+  @include material.hop-material;
+  @include components.hop-components;
 
-  // Global utility classes that all hop-ui host apps get
+  // Card variants: a normal mat-card is a quiet hairline-bordered surface.
+  // Add .hop-card-accent for an emphasis card with a colored left edge (the
+  // active/highlighted item in a stack). Defaults to the teal accent;
+  // override per instance via --hop-card-accent-color.
+  .mat-mdc-card.hop-card-accent {
+    border-left: 4px solid var(--hop-card-accent-color, var(--color-accent));
+  }
+
+  // hop-ui utility classes that host apps rely on.
   .hop-status-message {
-    margin-top: 10px;
-    padding: 10px;
-    border-radius: 4px;
+    margin-top: $spacing-3;
+    padding: $spacing-3;
+    border-radius: $radius-sm;
 
     &.success {
       background-color: var(--hop-success-bg);
       color: var(--hop-success-text);
     }
-
     &.error {
       background-color: var(--hop-error-bg);
       color: var(--hop-error-text);
@@ -37,14 +45,18 @@ $hop-theme: mat.define-light-theme((
   }
 
   .hop-form-section {
-    margin-bottom: 30px;
-    h4 { margin-bottom: 15px; color: var(--hop-primary); }
+    margin-bottom: $spacing-8;
+
+    h4 {
+      margin-bottom: $spacing-4;
+      color: var(--text-primary);
+    }
   }
 
   .hop-form-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
+    gap: $spacing-3;
+    margin-top: $spacing-5;
   }
 }

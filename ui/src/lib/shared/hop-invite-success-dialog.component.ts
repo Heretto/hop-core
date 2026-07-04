@@ -38,19 +38,19 @@ export interface HopInviteSuccessDialogData {
   `,
   styles: [`
     mat-dialog-content { min-width: 480px; max-width: 560px; }
-    .hint { color: rgba(0,0,0,0.6); margin-bottom: 16px; font-size: 14px; }
+    .hint { color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; }
     .invite-message-block {
-      position: relative; background: #f5f5f5; border: 1px solid #e0e0e0;
+      position: relative; background: var(--surface-sunken); border: 1px solid var(--border-default);
       border-radius: 8px; padding: 16px; padding-right: 48px; cursor: pointer;
     }
-    .invite-message-block:hover { background: #eeeeee; }
+    .invite-message-block:hover { background: var(--hover-overlay); }
     .invite-message-block pre {
       margin: 0; white-space: pre-wrap; word-wrap: break-word;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 13px; line-height: 1.6; color: #333;
+      font-family: var(--font-mono);
+      font-size: 13px; line-height: 1.6; color: var(--text-primary);
     }
     .copy-btn { position: absolute; top: 8px; right: 8px; }
-    .copied-hint { color: #4caf50; font-size: 13px; margin-top: 8px; margin-bottom: 0; }
+    .copied-hint { color: var(--color-success); font-size: 13px; margin-top: 8px; margin-bottom: 0; }
   `],
 })
 export class HopInviteSuccessDialogComponent {

@@ -3,13 +3,19 @@
   "version": "0.1.0",
   "description": "Heretto Open Projects — shared Angular UI library for hop-core applications",
   "peerDependencies": {
-    "@angular/common": "^17.0.0",
-    "@angular/core": "^17.0.0",
-    "@angular/forms": "^17.0.0",
-    "@angular/material": "^17.0.0",
-    "@angular/router": "^17.0.0"
+    "@angular/cdk": "^19.0.0",
+    "@angular/common": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/forms": "^19.0.0",
+    "@angular/material": "^19.0.0",
+    "@angular/router": "^19.0.0"
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json"
+  },
+  "devDependencies": {
+    "@angular/compiler-cli": "^19.0.0",
+    "ng-packagr": "^19.0.0",
+    "typescript": "~5.8.0"
   }
 }

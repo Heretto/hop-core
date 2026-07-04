@@ -110,6 +110,11 @@ wait_for_http "http://127.0.0.1:${BACKEND_PORT}/" "backend" 30 \
 
 (
   cd "$SCRIPT_DIR/frontend"
+  # ng serve runs backgrounded with no interactive stdin — suppress any CLI
+  # first-run prompts (analytics/autocompletion), which otherwise crash with
+  # "User force closed the prompt".
+  export NG_CLI_ANALYTICS=false
+  export CI=1
   exec npx ng serve \
     --port "$FRONTEND_PORT" \
     --proxy-config "$PROXY_CONF" \

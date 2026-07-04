@@ -1,0 +1,271 @@
+// =============================================================================
+// Semantic tokens — hop-ui
+// -----------------------------------------------------------------------------
+// CSS custom properties that components consume. Light theme is active; the
+// [data-theme="dark"] block is brought over but inert (nothing sets the
+// attribute yet) so dark mode is a low-cost flip later. Emitted via a mixin so
+// nothing renders until hop-core-theme() is included by the host app.
+// =============================================================================
+
+@use 'variables' as *;
+
+@mixin hop-tokens {
+  // ---------------------------------------------------------------------------
+  // Light theme (default)
+  // ---------------------------------------------------------------------------
+  :root,
+  [data-theme="light"] {
+    // Backgrounds
+    --bg-primary: #{$color-neutral-0};
+    --bg-secondary: #{$color-neutral-50};
+    --bg-tertiary: #{$color-neutral-100};
+    --bg-elevated: #{$color-neutral-0};
+    --bg-inverse: #{$color-neutral-900};
+    --bg-overlay: rgba(0, 0, 0, 0.5);
+
+    // Surfaces (cards, panels)
+    --surface-default: #{$color-neutral-0};
+    --surface-raised: #{$color-neutral-0};
+    --surface-sunken: #{$color-neutral-100};
+    --surface-overlay: #{$color-neutral-0};
+
+    // Text
+    --text-primary: #{$color-neutral-900};
+    --text-secondary: #{$color-neutral-600};
+    --text-tertiary: #{$color-neutral-500};
+    --text-disabled: #{$color-neutral-400};
+    --text-inverse: #{$color-neutral-0};
+    --text-link: #{$color-accent-700};        // teal-700: on-brand + AA on white
+    --text-link-hover: #{$color-accent-800};
+
+    // Borders
+    --border-default: #{$color-neutral-200};
+    --border-light: #{$color-neutral-100};
+    --border-strong: #{$color-neutral-300};
+    --border-focus: #{$color-accent-400};      // teal accent
+
+    // Primary (navy) — dominant brand color
+    --color-primary: #{$color-primary-900};
+    --color-primary-hover: #{$color-primary-700};   // lighten (base is near-black)
+    --color-primary-active: #{$color-primary-800};
+    --color-primary-bg: #{$color-primary-50};
+    --color-primary-bg-hover: #{$color-primary-100};
+    --color-primary-text: #{$color-primary-700};
+
+    // Accent (teal) — highlights / secondary emphasis
+    --color-accent: #{$color-accent-500};
+    --color-accent-hover: #{$color-accent-600};
+    --color-accent-bg: #{$color-accent-50};
+    --color-accent-text: #{$color-accent-700};
+
+    // Tertiary (magenta)
+    --color-tertiary: #{$color-tertiary-500};
+    --color-tertiary-bg: #{$color-tertiary-50};
+    --color-tertiary-text: #{$color-tertiary-600};
+
+    // Success
+    --color-success: #{$color-success-600};
+    --color-success-hover: #{$color-success-700};
+    --color-success-bg: #{$color-success-50};
+    --color-success-text: #{$color-success-700};
+    --color-success-border: #{$color-success-200};
+
+    // Warning
+    --color-warning: #{$color-warning-600};
+    --color-warning-hover: #{$color-warning-700};
+    --color-warning-bg: #{$color-warning-50};
+    --color-warning-text: #{$color-warning-800};
+    --color-warning-border: #{$color-warning-200};
+
+    // Error
+    --color-error: #{$color-error-600};
+    --color-error-hover: #{$color-error-700};
+    --color-error-bg: #{$color-error-50};
+    --color-error-text: #{$color-error-700};
+    --color-error-border: #{$color-error-200};
+
+    // Info (uses the teal accent family)
+    --color-info: #{$color-accent-600};
+    --color-info-bg: #{$color-accent-50};
+    --color-info-text: #{$color-accent-700};
+
+    // Interactive states
+    --hover-overlay: rgba(0, 0, 0, 0.04);
+    --active-overlay: rgba(0, 0, 0, 0.08);
+    --focus-ring: 0 0 0 3px #{rgba($color-accent-400, 0.35)};
+
+    // Shadows
+    --shadow-xs: #{$shadow-xs};
+    --shadow-sm: #{$shadow-sm};
+    --shadow-md: #{$shadow-md};
+    --shadow-lg: #{$shadow-lg};
+    --shadow-xl: #{$shadow-xl};
+
+    // Component-specific
+    --sidebar-bg: #{$color-neutral-50};
+    --header-bg: #{$color-neutral-0};
+    --header-border: #{$color-neutral-200};
+    --card-bg: #{$color-neutral-0};
+    --card-border: #{$color-neutral-200};
+    --input-bg: #{$color-neutral-0};
+    --input-border: #{$color-neutral-300};
+    --input-border-focus: #{$color-accent-400};
+    --button-secondary-bg: #{$color-neutral-100};
+    --button-secondary-hover: #{$color-neutral-200};
+
+    // Code / monospace
+    --code-bg: #{$color-neutral-100};
+    --code-text: #{$color-error-700};
+
+    // Scrollbar
+    --scrollbar-track: #{$color-neutral-100};
+    --scrollbar-thumb: #{$color-neutral-300};
+    --scrollbar-thumb-hover: #{$color-neutral-400};
+
+    // Font families (exposed for component styles)
+    --font-sans: #{$font-family-primary};
+    --font-mono: #{$font-family-mono};
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dark theme — INERT for now (nothing sets [data-theme="dark"]). Brought over
+  // so enabling dark mode later is a token + ThemeService change, not a rewrite.
+  // ---------------------------------------------------------------------------
+  [data-theme="dark"] {
+    --bg-primary: #0b0c0f;
+    --bg-secondary: #101218;
+    --bg-tertiary: #151821;
+    --bg-elevated: #1d212b;
+    --bg-inverse: #{$color-neutral-100};
+    --bg-overlay: rgba(4, 6, 10, 0.7);
+
+    --surface-default: #14161d;
+    --surface-raised: #1a1d26;
+    --surface-sunken: #0b0c0f;
+    --surface-overlay: #1d212b;
+
+    --text-primary: #eef0f3;
+    --text-secondary: #9ba1ac;
+    --text-tertiary: #7d8493;
+    --text-disabled: #4d5560;
+    --text-inverse: #15181e;
+    --text-link: #{$color-accent-300};
+    --text-link-hover: #{$color-accent-200};
+
+    --border-default: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(255, 255, 255, 0.05);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --border-focus: #{$color-accent-400};
+
+    // On a dark surface navy would vanish; use a lifted navy for primary.
+    --color-primary: #{$color-primary-300};
+    --color-primary-hover: #{$color-primary-200};
+    --color-primary-active: #{$color-primary-400};
+    --color-primary-bg: #{rgba($color-primary-500, 0.18)};
+    --color-primary-bg-hover: #{rgba($color-primary-500, 0.28)};
+    --color-primary-text: #{$color-primary-200};
+
+    --color-accent: #{$color-accent-400};
+    --color-accent-hover: #{$color-accent-300};
+    --color-accent-bg: #{rgba($color-accent-500, 0.15)};
+    --color-accent-text: #{$color-accent-300};
+
+    --color-tertiary: #{$color-tertiary-300};
+    --color-tertiary-bg: #{rgba($color-tertiary-500, 0.18)};
+    --color-tertiary-text: #{$color-tertiary-200};
+
+    --color-success: #{$color-success-400};
+    --color-success-hover: #{$color-success-300};
+    --color-success-bg: #{rgba($color-success-500, 0.15)};
+    --color-success-text: #{$color-success-300};
+    --color-success-border: #{rgba($color-success-500, 0.3)};
+
+    --color-warning: #{$color-warning-400};
+    --color-warning-hover: #{$color-warning-300};
+    --color-warning-bg: #{rgba($color-warning-500, 0.15)};
+    --color-warning-text: #{$color-warning-300};
+    --color-warning-border: #{rgba($color-warning-500, 0.3)};
+
+    --color-error: #{$color-error-400};
+    --color-error-hover: #{$color-error-300};
+    --color-error-bg: #{rgba($color-error-500, 0.15)};
+    --color-error-text: #{$color-error-300};
+    --color-error-border: #{rgba($color-error-500, 0.3)};
+
+    --color-info: #{$color-accent-400};
+    --color-info-bg: #{rgba($color-accent-500, 0.15)};
+    --color-info-text: #{$color-accent-300};
+
+    --hover-overlay: rgba(255, 255, 255, 0.05);
+    --active-overlay: rgba(255, 255, 255, 0.1);
+    --focus-ring: 0 0 0 3px #{rgba($color-accent-400, 0.35)};
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+
+    --sidebar-bg: #101218;
+    --header-bg: #0b0c0f;
+    --header-border: rgba(255, 255, 255, 0.08);
+    --card-bg: #14161d;
+    --card-border: rgba(255, 255, 255, 0.08);
+    --input-bg: #1a1d26;
+    --input-border: rgba(255, 255, 255, 0.12);
+    --input-border-focus: #{$color-accent-400};
+    --button-secondary-bg: #1d212b;
+    --button-secondary-hover: #252a36;
+
+    --code-bg: #1a1d26;
+    --code-text: #{$color-accent-300};
+
+    --scrollbar-track: #101218;
+    --scrollbar-thumb: #2a2f3b;
+    --scrollbar-thumb-hover: #353b48;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy aliases + hop-ui (--hop-*) compat layer. Existing components and the
+  // utility classes below reference these names; mapping them to the canonical
+  // tokens means components keep working and follow the theme automatically.
+  // ---------------------------------------------------------------------------
+  :root {
+    // Canonical aliases
+    --text-default: var(--text-primary);
+    --text-muted: var(--text-tertiary);
+    --surface-card: var(--card-bg);
+    --surface-elevated: var(--bg-elevated);
+    --accent: var(--color-accent);
+
+    // hop-ui legacy variables (were hardcoded brand colors)
+    --hop-primary: var(--color-primary);
+    --hop-accent: var(--color-accent);
+    --hop-warn: var(--color-error);
+    // Auth-page background — brand gradient (navy → teal) replacing the old purple.
+    --hop-gradient: linear-gradient(135deg, #{$color-primary-900} 0%, #{$color-accent-700} 100%);
+
+    // Layout
+    --hop-sidebar-width: #{$sidebar-width};
+    --hop-toolbar-height: #{$header-height};
+
+    // Spacing
+    --hop-space-xs: #{$spacing-1};
+    --hop-space-sm: #{$spacing-2};
+    --hop-space-md: #{$spacing-4};
+    --hop-space-lg: #{$spacing-6};
+    --hop-space-xl: #{$spacing-8};
+
+    // Status colors used by .hop-status-message
+    --hop-success-bg: var(--color-success-bg);
+    --hop-success-text: var(--color-success-text);
+    --hop-error-bg: var(--color-error-bg);
+    --hop-error-text: var(--color-error-text);
+
+    // Dark code panel (.hop-code-panel) — theme-INVARIANT: a VS Code-style
+    // surface that stays dark in both light and dark themes.
+    --code-panel-bg: #1e1e1e;
+    --code-panel-text: #d4d4d4;
+    --code-panel-border: rgba(255, 255, 255, 0.1);
+  }
+}
