@@ -153,9 +153,9 @@ import { MatDividerModule } from '@angular/material/divider';
             organization, invitation, and account routes are registered under
             <code>/api/v1</code>, with CORS, CSRF, sessions, and rate limiting wired up.
           </p>
-          <pre class="code-block"><code>{{ backendSnippet }}</code></pre>
+          <div class="hop-code-panel"><pre>{{ backendSnippet }}</pre></div>
           <p>Set the required environment variables:</p>
-          <pre class="code-block"><code>{{ envSnippet }}</code></pre>
+          <div class="hop-code-panel"><pre>{{ envSnippet }}</pre></div>
         </mat-card-content>
       </mat-card>
 
@@ -170,7 +170,7 @@ import { MatDividerModule } from '@angular/material/divider';
             routes. <code>HOP_ROUTES</code> gives you the full set in one line, or pick
             routes individually:
           </p>
-          <pre class="code-block"><code>{{ frontendSnippet }}</code></pre>
+          <div class="hop-code-panel"><pre>{{ frontendSnippet }}</pre></div>
         </mat-card-content>
       </mat-card>
 
@@ -193,7 +193,7 @@ import { MatDividerModule } from '@angular/material/divider';
             backend runs the OIDC flow server-side and hands the session to
             <code>HopSSOCallbackComponent</code>.
           </p>
-          <pre class="code-block"><code>{{ ssoSnippet }}</code></pre>
+          <div class="hop-code-panel"><pre>{{ ssoSnippet }}</pre></div>
         </mat-card-content>
       </mat-card>
 
@@ -227,7 +227,7 @@ import { MatDividerModule } from '@angular/material/divider';
     .auth-docs { max-width: 900px; margin: 0 auto; padding-bottom: 48px; }
     .back-link { margin-bottom: 16px; }
     h1 { margin-bottom: 8px; }
-    .subtitle { color: rgba(0,0,0,0.54); margin-bottom: 32px; }
+    .subtitle { color: var(--text-secondary); margin-bottom: 32px; }
     h2 { margin: 32px 0 16px; }
 
     .capability-grid {
@@ -236,35 +236,26 @@ import { MatDividerModule } from '@angular/material/divider';
       gap: 16px;
     }
     .capability mat-icon[mat-card-avatar] {
-      font-size: 32px; width: 32px; height: 32px; color: var(--hop-accent, #667eea);
+      font-size: 32px; width: 32px; height: 32px; color: var(--color-accent);
     }
-    .capability p, .section-card p { color: rgba(0,0,0,0.6); line-height: 1.6; }
+    .capability p, .section-card p { color: var(--text-secondary); line-height: 1.6; }
 
     .section-card { margin-bottom: 16px; }
-    .try-list { margin: 0; padding-left: 20px; color: rgba(0,0,0,0.6); line-height: 1.9; }
+    .try-list { margin: 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.9; }
 
-    .code-block {
-      background: #f5f5f5;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      padding: 14px 16px;
-      overflow-x: auto;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-    .code-block code { background: none; padding: 0; }
+    .hop-code-panel { margin-bottom: 16px; }
 
     .endpoint-table { border-collapse: collapse; width: 100%; }
     .endpoint-table th {
-      text-align: left; font-size: 12px; text-transform: uppercase;
-      color: rgba(0,0,0,0.54); padding: 6px 12px 6px 0;
-      border-bottom: 1px solid #e0e0e0;
+      text-align: left; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--text-tertiary);
+      padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border-default);
     }
     .endpoint-table td {
-      padding: 6px 12px 6px 0; border-bottom: 1px solid #eeeeee;
-      color: rgba(0,0,0,0.7); font-size: 14px;
+      padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border-light);
+      color: var(--text-secondary); font-size: 0.9rem;
     }
-    .table-note { margin-top: 12px; font-size: 13px; }
+    .table-note { margin-top: 12px; font-size: 0.85rem; }
   `],
 })
 export class AuthDocsComponent {
