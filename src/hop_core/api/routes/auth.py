@@ -18,7 +18,7 @@ from hop_core.schemas.user import (
     ForgotPasswordRequest, ResetPasswordRequest,
 )
 from hop_core.core.security import (
-    verify_password, get_password_hash, needs_rehash,
+    verify_password, get_password_hash,
     create_access_token, create_refresh_token, decode_token,
     set_auth_cookies, clear_auth_cookies,
     create_password_reset_token, decode_password_reset_token,
@@ -149,10 +149,6 @@ async def login(
 
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
-
-    if needs_rehash(user.password_hash):
-        user.password_hash = get_password_hash(credentials.password)
-        db.commit()
 
     stmt = select(user_organizations).where(user_organizations.c.user_id == user.id)
     user_orgs = db.execute(stmt).fetchall()
