@@ -1,31 +1,219 @@
-// Hop-core brand colors
-$hop-primary-hue:    #3f51b5;   // indigo 500
-$hop-accent-hue:     #667eea;   // brand purple-blue
-$hop-warn-hue:       #f44336;   // red 500
+// =============================================================================
+// Design Tokens — hop-ui (Heretto brand)
+// -----------------------------------------------------------------------------
+// Raw palette + scales. These are pure Sass variables (no CSS emitted); the
+// semantic CSS custom properties in _tokens.scss reference them. Adapted from
+// the Kaizen design system, rethemed to the Heretto brand.
+//   Primary   #011627  dark navy  — dominant brand color (filled buttons, etc.)
+//   Accent    #79ECDD  teal       — highlights, focus, links, hover tints
+//   Tertiary  #AD4780  magenta
+//   Warning   #F7D48E  gold
+// =============================================================================
 
-:root {
-  // Core palette
-  --hop-primary:         #{$hop-primary-hue};
-  --hop-accent:          #{$hop-accent-hue};
-  --hop-warn:            #{$hop-warn-hue};
+// -----------------------------------------------------------------------------
+// Primary — Heretto navy (#011627 is the 900/brand anchor). Near-black at the
+// dark end, so filled surfaces use 900 and *lighten* on hover.
+// -----------------------------------------------------------------------------
+$color-primary-50:  #eef2f6;
+$color-primary-100: #d4dfe8;
+$color-primary-200: #adc0d0;
+$color-primary-300: #7f9bb2;
+$color-primary-400: #4f7291;
+$color-primary-500: #2b5175;
+$color-primary-600: #163a5c;
+$color-primary-700: #0d2947;
+$color-primary-800: #061d33;
+$color-primary-900: #011627; // brand
 
-  // Auth page background gradient
-  --hop-gradient:        linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+// -----------------------------------------------------------------------------
+// Accent — Heretto teal (#79ECDD at 300). Light/bright: great for accents and
+// tints, but fails WCAG AA as text on white — use 700 for links/text on light.
+// -----------------------------------------------------------------------------
+$color-accent-50:  #effefb;
+$color-accent-100: #c9fdf1;
+$color-accent-200: #9bf5e4;
+$color-accent-300: #79ecdd; // brand
+$color-accent-400: #37d6c4;
+$color-accent-500: #16b9a8;
+$color-accent-600: #0d9488;
+$color-accent-700: #0f766e;
+$color-accent-800: #115e59;
+$color-accent-900: #134e4a;
 
-  // Layout
-  --hop-sidebar-width:   250px;
-  --hop-toolbar-height:  64px;
+// -----------------------------------------------------------------------------
+// Tertiary — Heretto magenta (#AD4780 at 500).
+// -----------------------------------------------------------------------------
+$color-tertiary-50:  #fbf0f6;
+$color-tertiary-100: #f6d9ea;
+$color-tertiary-200: #eab3d3;
+$color-tertiary-300: #dd85b6;
+$color-tertiary-400: #c95f98;
+$color-tertiary-500: #ad4780; // brand
+$color-tertiary-600: #923a6b;
+$color-tertiary-700: #742e55;
+$color-tertiary-800: #57223f;
+$color-tertiary-900: #3b1729;
 
-  // Spacing scale
-  --hop-space-xs:  4px;
-  --hop-space-sm:  8px;
-  --hop-space-md:  16px;
-  --hop-space-lg:  24px;
-  --hop-space-xl:  32px;
+// -----------------------------------------------------------------------------
+// Success (emerald — harmonizes with the teal accent)
+// -----------------------------------------------------------------------------
+$color-success-50:  #ecfdf5;
+$color-success-100: #d1fae5;
+$color-success-200: #a7f3d0;
+$color-success-300: #6ee7b7;
+$color-success-400: #34d399;
+$color-success-500: #10b981;
+$color-success-600: #059669;
+$color-success-700: #047857;
+$color-success-800: #065f46;
+$color-success-900: #064e3b;
 
-  // Status colours (used in global utility classes)
-  --hop-success-bg:      #c8e6c9;
-  --hop-success-text:    #2e7d32;
-  --hop-error-bg:        #ffcdd2;
-  --hop-error-text:      #c62828;
-}
+// -----------------------------------------------------------------------------
+// Warning — Heretto gold (#F7D48E at 300). Dark shades (700/800) carry AA text.
+// -----------------------------------------------------------------------------
+$color-warning-50:  #fefbf0;
+$color-warning-100: #fdf3d6;
+$color-warning-200: #fae5ad;
+$color-warning-300: #f7d48e; // brand
+$color-warning-400: #f0bd5c;
+$color-warning-500: #e3a032;
+$color-warning-600: #c07f1c;
+$color-warning-700: #986114;
+$color-warning-800: #714810;
+$color-warning-900: #4d310b;
+
+// -----------------------------------------------------------------------------
+// Error (rose-tinted red)
+// -----------------------------------------------------------------------------
+$color-error-50:  #fef2f2;
+$color-error-100: #fee2e2;
+$color-error-200: #fecaca;
+$color-error-300: #fca5a5;
+$color-error-400: #f87171;
+$color-error-500: #ef4444;
+$color-error-600: #dc2626;
+$color-error-700: #b91c1c;
+$color-error-800: #991b1b;
+$color-error-900: #7f1d1d;
+
+// -----------------------------------------------------------------------------
+// Neutral — cool-tinted (hue ~225, low chroma) instead of pure gray. The slight
+// blue cast keeps surfaces from feeling washed out and pairs with the navy.
+// -----------------------------------------------------------------------------
+$color-neutral-0:    #ffffff;
+$color-neutral-50:   #f8f9fb;
+$color-neutral-100:  #f1f3f6;
+$color-neutral-200:  #e4e7ec;
+$color-neutral-300:  #d2d6dd;
+$color-neutral-400:  #9ba1ac;
+$color-neutral-500:  #6c7280;
+$color-neutral-600:  #4d5560;
+$color-neutral-700:  #353b45;
+$color-neutral-800:  #23272f;
+$color-neutral-900:  #15181e;
+$color-neutral-1000: #000000;
+
+// -----------------------------------------------------------------------------
+// Spacing scale (8px base)
+// -----------------------------------------------------------------------------
+$spacing-0:  0;
+$spacing-1:  4px;
+$spacing-2:  8px;
+$spacing-3:  12px;
+$spacing-4:  16px;
+$spacing-5:  20px;
+$spacing-6:  24px;
+$spacing-7:  28px;
+$spacing-8:  32px;
+$spacing-10: 40px;
+$spacing-12: 48px;
+$spacing-16: 64px;
+$spacing-20: 80px;
+$spacing-24: 96px;
+
+// -----------------------------------------------------------------------------
+// Typography
+// -----------------------------------------------------------------------------
+$font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-family-mono: 'Roboto Mono', ui-monospace, 'SF Mono', Consolas, Menlo, monospace;
+
+$font-size-xs:  0.75rem;   // 12px
+$font-size-sm:  0.875rem;  // 14px
+$font-size-base: 1rem;     // 16px
+$font-size-md:  1.125rem;  // 18px
+$font-size-lg:  1.25rem;   // 20px
+$font-size-xl:  1.5rem;    // 24px
+$font-size-2xl: 1.875rem;  // 30px
+$font-size-3xl: 2.25rem;   // 36px
+$font-size-4xl: 3rem;      // 48px
+
+$font-weight-light:    300;
+$font-weight-regular:  400;
+$font-weight-medium:   500;
+$font-weight-semibold: 600;
+$font-weight-bold:     700;
+
+$line-height-tight:   1.25;
+$line-height-normal:  1.5;
+$line-height-relaxed: 1.75;
+
+$letter-spacing-tight:  -0.025em;
+$letter-spacing-normal: 0;
+$letter-spacing-wide:   0.025em;
+$letter-spacing-wider:  0.05em;
+
+// -----------------------------------------------------------------------------
+// Border radius
+// -----------------------------------------------------------------------------
+$radius-none: 0;
+$radius-sm:   4px;
+$radius-md:   8px;
+$radius-lg:   12px;
+$radius-xl:   16px;
+$radius-2xl:  24px;
+$radius-full: 9999px;
+
+// -----------------------------------------------------------------------------
+// Shadows
+// -----------------------------------------------------------------------------
+$shadow-xs:    0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-sm:    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+$shadow-md:    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+$shadow-lg:    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+$shadow-xl:    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+$shadow-2xl:   0 25px 50px -12px rgba(0, 0, 0, 0.25);
+$shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+
+// -----------------------------------------------------------------------------
+// Transitions
+// -----------------------------------------------------------------------------
+$transition-fast:   150ms ease;
+$transition-normal: 250ms ease;
+$transition-slow:   350ms ease;
+
+// -----------------------------------------------------------------------------
+// Z-index scale
+// -----------------------------------------------------------------------------
+$z-dropdown:       100;
+$z-sticky:         200;
+$z-fixed:          300;
+$z-modal-backdrop: 400;
+$z-modal:          500;
+$z-popover:        600;
+$z-tooltip:        700;
+$z-toast:          800;
+
+// -----------------------------------------------------------------------------
+// Breakpoints
+// -----------------------------------------------------------------------------
+$breakpoint-sm:  640px;
+$breakpoint-md:  768px;
+$breakpoint-lg:  1024px;
+$breakpoint-xl:  1280px;
+$breakpoint-2xl: 1536px;
+
+// -----------------------------------------------------------------------------
+// Component-specific tokens
+// -----------------------------------------------------------------------------
+$sidebar-width: 250px;   // matches hop-ui's existing layout
+$header-height: 64px;

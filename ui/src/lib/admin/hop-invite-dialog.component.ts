@@ -42,7 +42,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
       </button>
     </mat-dialog-actions>
   `,
-  styles: [`.full-width { width: 100%; margin-bottom: 16px; } mat-dialog-content { min-width: 400px; }`],
+  styles: [`.full-width { width: 100%; } mat-dialog-content { min-width: 400px; }`],
 })
 export class HopInviteDialogComponent {
   private fb = inject(FormBuilder);

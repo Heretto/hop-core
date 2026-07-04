@@ -181,13 +181,13 @@ import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-di
   styles: [`
     .admin-container { max-width: 1200px; margin: 0 auto; }
     .org-info-card { margin-bottom: 24px; }
-    .full-width { width: 100%; margin-bottom: 16px; }
+    .full-width { width: 100%; }
     .tab-content { padding: 24px; }
     .members-header, .invitations-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .members-table, .invitations-table { width: 100%; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .members-table, .invitations-table { width: 100%; background: transparent; }
     .loading-card { display: flex; justify-content: center; align-items: center; min-height: 200px; text-align: center; }
     .loading-card mat-card-content { display: flex; flex-direction: column; align-items: center; }
-    .no-data { text-align: center; padding: 48px; color: #999; }
+    .no-data { text-align: center; padding: 48px; color: var(--text-tertiary); }
     .no-data mat-icon { font-size: 64px; height: 64px; width: 64px; margin-bottom: 16px; }
     mat-spinner { display: inline-block; margin-right: 8px; }
   `],

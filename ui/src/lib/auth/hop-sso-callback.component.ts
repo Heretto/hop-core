@@ -18,7 +18,7 @@ import { HopAuthService } from './hop-auth.service';
     .sso-callback-container {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; height: 100vh; gap: 16px;
-      color: rgba(0,0,0,0.54);
+      color: var(--text-secondary);
     }
   `],
 })

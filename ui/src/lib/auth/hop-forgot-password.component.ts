@@ -49,16 +49,16 @@ import { HopAuthService } from './hop-auth.service';
     .forgot-container {
       display: flex; justify-content: center; align-items: center;
       height: 100vh;
-      background: var(--hop-gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+      background: var(--hop-gradient);
     }
     .forgot-card { width: 100%; max-width: 400px; padding: 20px; }
-    .full-width { width: 100%; margin-bottom: 15px; }
-    .hint { color: rgba(0,0,0,0.54); margin-bottom: 16px; }
+    .full-width { width: 100%; }
+    .hint { color: var(--text-secondary); margin-bottom: 16px; }
     .button-row { display: flex; justify-content: center; margin-top: 20px; }
-    .error-message { color: #f44336; margin-bottom: 15px; text-align: center; }
-    .success-message { color: #4caf50; margin-bottom: 15px; text-align: center; }
+    .error-message { color: var(--color-error); margin-bottom: 15px; text-align: center; }
+    .success-message { color: var(--color-success); margin-bottom: 15px; text-align: center; }
     .back-link { text-align: center; margin-top: 16px; }
-    .back-link a { color: var(--hop-accent, #667eea); text-decoration: none; font-size: 14px; }
+    .back-link a { color: var(--text-link); text-decoration: none; font-size: 14px; }
     mat-spinner { display: inline-block; margin-right: 10px; }
   `],
 })

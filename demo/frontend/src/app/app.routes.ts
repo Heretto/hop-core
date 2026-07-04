@@ -35,6 +35,11 @@ export const routes: Routes = [
           import('./dashboard/dashboard.component').then(m => m.DashboardComponent),
       },
       {
+        path: 'widgets',
+        loadComponent: () =>
+          import('./widgets/widgets.component').then(m => m.WidgetsComponent),
+      },
+      {
         path: 'account',
         loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAccountComponent),
       },
