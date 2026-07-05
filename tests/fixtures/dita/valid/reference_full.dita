@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="reference-config">
+  <title>Configuration Reference</title>
+  <shortdesc>Complete list of configuration parameters.</shortdesc>
+  <refbody>
+    <section>
+      <title>Database Settings</title>
+      <p>The following parameters control the database connection.</p>
+      <dl>
+        <dlentry>
+          <dt>DATABASE_URL</dt>
+          <dd>Full connection string in the format <codeph>postgresql://user:pass@host/db</codeph>.</dd>
+        </dlentry>
+        <dlentry>
+          <dt>DATABASE_POOL_SIZE</dt>
+          <dd>Maximum number of connections in the pool. Default: 10.</dd>
+        </dlentry>
+      </dl>
+    </section>
+    <section>
+      <title>Authentication Settings</title>
+      <p>Parameters that control session and token behaviour.</p>
+      <dl>
+        <dlentry>
+          <dt>JWT_SECRET_KEY</dt>
+          <dd>Secret used to sign JWT tokens. Must be at least 32 characters.</dd>
+        </dlentry>
+        <dlentry>
+          <dt>TOKEN_EXPIRY_MINUTES</dt>
+          <dd>How long an access token remains valid. Default: 60.</dd>
+        </dlentry>
+      </dl>
+    </section>
+  </refbody>
+</reference>

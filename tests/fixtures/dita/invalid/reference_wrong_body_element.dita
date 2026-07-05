@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<!-- INVALID: A reference must use <refbody>, not <body>.
+     <body> is not in the reference DTD's content model for <reference>.
+     Error: Element reference content does not follow the DTD,
+            expecting (title, ..., refbody?, ...) -->
+<reference id="reference-wrong-body">
+  <title>Reference Using Topic Body</title>
+  <body>
+    <p>This reference uses &lt;body&gt; instead of &lt;refbody&gt;.</p>
+  </body>
+</reference>

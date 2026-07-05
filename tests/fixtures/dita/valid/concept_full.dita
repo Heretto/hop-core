@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="concept-versioning">
+  <title>Versioning Policy</title>
+  <shortdesc>How version numbers are assigned in this product.</shortdesc>
+  <conbody>
+    <p>This product uses semantic versioning: MAJOR.MINOR.PATCH.</p>
+    <section>
+      <title>Major Versions</title>
+      <p>Incremented for incompatible API changes.</p>
+    </section>
+    <section>
+      <title>Minor Versions</title>
+      <p>Incremented for backwards-compatible new functionality.</p>
+    </section>
+    <section>
+      <title>Patch Versions</title>
+      <p>Incremented for backwards-compatible bug fixes.</p>
+    </section>
+  </conbody>
+</concept>

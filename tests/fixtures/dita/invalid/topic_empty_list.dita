@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<!-- INVALID: <ul> and <ol> require at least one <li> child.
+     An empty list violates the DTD content model.
+     Error: Element ul content does not follow the DTD, expecting (li+) -->
+<topic id="topic-empty-list">
+  <title>Topic with Empty List</title>
+  <body>
+    <section>
+      <title>Empty Section</title>
+      <ul/>
+    </section>
+  </body>
+</topic>

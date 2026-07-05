@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<!-- INVALID: DTD requires <title> as the first child of <topic>.
+     Error: Element topic content does not follow the DTD,
+            expecting (title, ...), got (body) -->
+<topic id="topic-no-title">
+  <body>
+    <p>This topic has no title element.</p>
+  </body>
+</topic>

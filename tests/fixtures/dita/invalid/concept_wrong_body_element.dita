@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<!-- INVALID: A concept must use <conbody>, not <body>.
+     <body> is not in the concept DTD's content model for <concept>.
+     Error: Element concept content does not follow the DTD,
+            expecting (title, ..., conbody?, ...) -->
+<concept id="concept-wrong-body">
+  <title>Concept Using Topic Body</title>
+  <body>
+    <p>This concept uses &lt;body&gt; instead of &lt;conbody&gt;.</p>
+  </body>
+</concept>

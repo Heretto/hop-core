@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<!-- INVALID: Nested topic elements (like <concept>) are not allowed inside
+     <conbody>. They may appear as siblings after <conbody>, not inside it.
+     Error: Element conbody content does not follow the DTD, got (concept) -->
+<concept id="concept-nested">
+  <title>Outer Concept</title>
+  <conbody>
+    <concept id="concept-inner">
+      <title>Inner Concept</title>
+      <conbody><p>This is improperly nested.</p></conbody>
+    </concept>
+  </conbody>
+</concept>

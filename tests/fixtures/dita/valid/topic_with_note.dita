@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="topic-with-note">
+  <title>Release Notes with Note</title>
+  <body>
+    <section>
+      <title>Upgrade Instructions</title>
+      <p>Follow these steps to upgrade from v2.x to v3.0.</p>
+      <note type="warning">Back up your database before upgrading. This migration is irreversible.</note>
+      <ol>
+        <li>Stop the application server.</li>
+        <li>Run the database migration script.</li>
+        <li>Deploy the new application bundle.</li>
+      </ol>
+    </section>
+  </body>
+</topic>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<!-- INVALID: The strict task DTD does not allow <p> directly inside <taskbody>.
+     taskbody content model: (prereq?, context?, (steps|steps-unordered)?,
+                               result?, tasktroubleshooting?, example?, postreq?)
+     A bare <p> does not fit any of those slots.
+     Error: Element taskbody content does not follow the DTD -->
+<task id="task-p-in-taskbody">
+  <title>Task With Bare Paragraph</title>
+  <taskbody>
+    <p>This paragraph is not valid at the top level of taskbody.</p>
+  </taskbody>
+</task>
