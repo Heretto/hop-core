@@ -5,7 +5,6 @@ All settings access is lazy — no module-level get_settings() calls.
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import hashlib
 import secrets
 import ipaddress
 import socket
@@ -65,22 +64,12 @@ def _get_jwt_settings():
 
 # --- Password hashing ---
 
-def _is_sha256_hash(hashed_password: str) -> bool:
-    return len(hashed_password) == 64 and all(c in '0123456789abcdef' for c in hashed_password)
-
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    if _is_sha256_hash(hashed_password):
-        return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
     return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
 
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-
-def needs_rehash(hashed_password: str) -> bool:
-    return _is_sha256_hash(hashed_password)
 
 
 # --- JWT tokens ---
