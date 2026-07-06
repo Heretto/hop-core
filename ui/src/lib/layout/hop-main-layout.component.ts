@@ -12,6 +12,7 @@ import { HopAuthService } from '../auth/hop-auth.service';
 import { HopOrganizationService, Organization } from '../shared/hop-organization.service';
 import { HopAccountService } from '../shared/hop-account.service';
 import { NavItem } from './nav-item.model';
+import { HOP_LOGO_SRC } from '../tokens/hop-logo-src.token';
 
 @Component({
   selector: 'hop-main-layout',
@@ -203,8 +204,9 @@ export class HopMainLayoutComponent implements OnInit {
   @Input() appTitle = 'App';
   /** Brand image for the top bar (e.g. 'assets/logo.png'). Rendered at the
    *  far left; when appTitle is also set, the name appears beside it after a
-   *  thin divider. Set appTitle to '' for a logo-only brand. */
-  @Input() logoSrc?: string;
+   *  thin divider. Set appTitle to '' for a logo-only brand.
+   *  Falls back to the HOP_LOGO_SRC injection token when not bound directly. */
+  @Input() logoSrc: string | undefined = inject(HOP_LOGO_SRC, { optional: true }) ?? undefined;
   @Input() navItems: NavItem[] = [];
 
   private authService = inject(HopAuthService);

@@ -1,5 +1,6 @@
 // Token
 export { HOP_API_URL } from './lib/tokens/hop-api-url.token';
+export { HOP_LOGO_SRC } from './lib/tokens/hop-logo-src.token';
 
 // Services
 export { HopAuthService } from './lib/auth/hop-auth.service';
