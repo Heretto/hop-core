@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task-install">
+  <title>Installing the Application</title>
+  <shortdesc>How to install the application on a supported platform.</shortdesc>
+  <taskbody>
+    <prereq>
+      <p>You must have administrator privileges and at least 2 GB of free disk space.</p>
+    </prereq>
+    <context>
+      <p>The installer will create a new service and configure the firewall automatically.</p>
+    </context>
+    <steps>
+      <step>
+        <cmd>Download the installer package from the releases page.</cmd>
+      </step>
+      <step>
+        <cmd>Run the installer with administrator privileges.</cmd>
+        <info>On Windows, right-click the installer and choose <b>Run as administrator</b>.</info>
+      </step>
+      <step>
+        <cmd>Accept the license agreement and follow the setup wizard.</cmd>
+      </step>
+      <step>
+        <cmd>Click <b>Finish</b> when the installation completes.</cmd>
+      </step>
+    </steps>
+    <result>
+      <p>The application is installed and the service starts automatically.</p>
+    </result>
+  </taskbody>
+</task>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="topic-full">
+  <title>Full Release Notes</title>
+  <shortdesc>This release includes new features, bug fixes, and performance improvements.</shortdesc>
+  <body>
+    <section>
+      <title>New Features</title>
+      <ul>
+        <li>Added multi-factor authentication support.</li>
+        <li>Introduced dark mode across all screens.</li>
+        <li>New CSV export for all report types.</li>
+      </ul>
+    </section>
+    <section>
+      <title>Bug Fixes</title>
+      <ul>
+        <li>Fixed session timeout not resetting on activity.</li>
+        <li>Resolved incorrect totals in the billing summary.</li>
+      </ul>
+    </section>
+    <section>
+      <title>Known Issues</title>
+      <p>The following issues are known and will be addressed in the next release:</p>
+      <ul>
+        <li>Export to PDF may fail for reports exceeding 1000 rows.</li>
+      </ul>
+    </section>
+  </body>
+</topic>

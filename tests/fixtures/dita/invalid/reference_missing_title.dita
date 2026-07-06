@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<!-- INVALID: <title> is required as the first child of <reference>.
+     Error: Element reference content does not follow the DTD,
+            expecting (title, ...), got (refbody) -->
+<reference id="reference-no-title">
+  <refbody>
+    <section>
+      <title>Section</title>
+      <p>No reference title was provided.</p>
+    </section>
+  </refbody>
+</reference>

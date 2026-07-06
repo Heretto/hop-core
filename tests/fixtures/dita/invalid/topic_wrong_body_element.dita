@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<!-- INVALID: <conbody> is defined in the concept DTD, not in basetopic.dtd.
+     Using it in a <topic> produces "No declaration for element conbody".
+     Error: No declaration for element conbody -->
+<topic id="topic-conbody">
+  <title>Topic Using Concept Body</title>
+  <conbody>
+    <p>A topic must use &lt;body&gt;, not &lt;conbody&gt;.</p>
+  </conbody>
+</topic>

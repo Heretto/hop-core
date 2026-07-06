@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<!-- INVALID: <title> is required as the first child of <concept>.
+     Error: Element concept content does not follow the DTD,
+            expecting (title, ...), got (conbody) -->
+<concept id="concept-no-title">
+  <conbody>
+    <p>No title was provided for this concept.</p>
+  </conbody>
+</concept>

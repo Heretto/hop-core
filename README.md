@@ -19,6 +19,7 @@ A batteries-included platform library for building AI-powered content creation a
 | **Password reset** | Token-based reset flow with SMTP email delivery |
 | **Security** | CSRF double-submit cookie protection, rate limiting via slowapi, SSRF-safe URL validation, security response headers |
 | **Admin** | Development-only admin endpoints for inspecting app state |
+| **DITA** | `hop_core.dita` (install the `hop-core[dita]` extra) — DITA 1.3 validation with bundled OASIS grammars (`DitaValidator`: DTD validation via `xmllint`, structural fallback, deterministic auto-fixes) and AI-driven correction (`DitaCorrectionService`: validate→correct loop with any injected AI service). For full DTD validation install `xmllint` (`apt-get install libxml2-utils` / `brew install libxml2`); without it the validator falls back to structural checks. |
 
 ### Frontend (`@heretto/hop-ui` Angular library)
 

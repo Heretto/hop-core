@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<!-- INVALID: <title> is required as the first child of <task>.
+     Error: Element task content does not follow the DTD,
+            expecting (title, ...), got (taskbody) -->
+<task id="task-no-title">
+  <taskbody>
+    <steps>
+      <step><cmd>Do something.</cmd></step>
+    </steps>
+  </taskbody>
+</task>

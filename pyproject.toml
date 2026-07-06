@@ -24,10 +24,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "httpx", "anyio[trio]"]
+dita = ["lxml>=5.0"]
+dev = ["pytest", "pytest-asyncio", "httpx", "anyio[trio]", "lxml>=5.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"hop_core.dita" = ["resources/**/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"

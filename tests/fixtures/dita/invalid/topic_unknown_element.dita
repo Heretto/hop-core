@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<!-- INVALID: <span> and <strong> are HTML inline elements with no counterpart
+     in the DITA DTD. DITA uses <ph> instead of <span> and <b> instead of
+     <strong>.
+     Error: No declaration for element span / strong -->
+<topic id="topic-html-inline">
+  <title>Topic with HTML Inline Elements</title>
+  <body>
+    <p>This text uses <span>span</span> and <strong>strong</strong> instead of DITA equivalents.</p>
+  </body>
+</topic>

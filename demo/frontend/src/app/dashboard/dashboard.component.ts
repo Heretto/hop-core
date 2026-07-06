@@ -35,6 +35,23 @@ import { MatIconModule } from '@angular/material/icon';
 
         <mat-card class="feature-card">
           <mat-card-header>
+            <mat-icon mat-card-avatar>fact_check</mat-icon>
+            <mat-card-title>DITA Validation</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>
+              DITA 1.3 validation as a reusable module — DTD validation against
+              bundled OASIS grammars, structural fallback, deterministic
+              auto-fixes, and an AI-driven correct-until-valid loop.
+            </p>
+          </mat-card-content>
+          <mat-card-actions>
+            <a mat-button color="primary" routerLink="/docs/dita">Learn More</a>
+          </mat-card-actions>
+        </mat-card>
+
+        <mat-card class="feature-card">
+          <mat-card-header>
             <mat-icon mat-card-avatar>admin_panel_settings</mat-icon>
             <mat-card-title>Organization Admin</mat-card-title>
           </mat-card-header>

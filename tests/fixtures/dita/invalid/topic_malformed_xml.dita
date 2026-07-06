@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<!-- INVALID: Unclosed <p> tag makes the document not well-formed XML.
+     This fails XML parsing before DTD validation even starts.
+     Error: XML parser error (unclosed tag) -->
+<topic id="topic-malformed">
+  <title>Malformed XML</title>
+  <body>
+    <section>
+      <title>Broken</title>
+      <p>This paragraph is never closed.
+    </section>
+  </body>
+</topic>
