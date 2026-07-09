@@ -267,6 +267,17 @@
     background-color: var(--button-secondary-bg) !important;
     color: var(--text-primary) !important;
     border-radius: $radius-full !important;
+
+    // Material sets the label color on the inner span, which otherwise wins
+    // over the host `color` above (and any app override for status chips).
+    // Inherit so the chip's color actually reaches its visible text.
+    // inline-flex + center vertically aligns a leading <mat-icon> with the
+    // label text (Material leaves projected icons baseline-aligned otherwise).
+    .mdc-evolution-chip__text-label {
+      color: inherit !important;
+      display: inline-flex;
+      align-items: center;
+    }
   }
 
   // Progress spinner / bar

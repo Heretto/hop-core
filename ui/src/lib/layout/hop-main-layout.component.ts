@@ -13,6 +13,7 @@ import { HopOrganizationService, Organization } from '../shared/hop-organization
 import { HopAccountService } from '../shared/hop-account.service';
 import { NavItem } from './nav-item.model';
 import { HOP_LOGO_SRC } from '../tokens/hop-logo-src.token';
+import { HERETTO_OPEN_PROJECTS_LOGO } from './heretto-open-projects-logo';
 
 @Component({
   selector: 'hop-main-layout',
@@ -34,10 +35,10 @@ import { HOP_LOGO_SRC } from '../tokens/hop-logo-src.token';
     <div class="layout-shell">
       <mat-toolbar class="top-bar">
         <a class="brand" routerLink="/">
-          <ng-container *ngIf="logoSrc; else brandText">
+          <ng-container *ngIf="brandLogoSrc; else brandText">
             <!-- Decorative alt when the name renders beside it; otherwise the
                  logo carries the accessible label. -->
-            <img class="brand-logo" [src]="logoSrc" [alt]="appTitle ? '' : 'Home'" />
+            <img class="brand-logo" [src]="brandLogoSrc" [alt]="appTitle ? '' : 'Home'" />
             <ng-container *ngIf="appTitle">
               <span class="brand-sep"></span>
               <span class="brand-name">{{ appTitle }}</span>
@@ -205,9 +206,19 @@ export class HopMainLayoutComponent implements OnInit {
   /** Brand image for the top bar (e.g. 'assets/logo.png'). Rendered at the
    *  far left; when appTitle is also set, the name appears beside it after a
    *  thin divider. Set appTitle to '' for a logo-only brand.
-   *  Falls back to the HOP_LOGO_SRC injection token when not bound directly. */
-  @Input() logoSrc: string | undefined = inject(HOP_LOGO_SRC, { optional: true }) ?? undefined;
+   *  When unset, resolves via `brandLogoSrc` to the HOP_LOGO_SRC token or the
+   *  embedded Heretto Open Projects brand logo. */
+  @Input() logoSrc: string | undefined;
+  private readonly hopLogoSrc = inject(HOP_LOGO_SRC, { optional: true });
   @Input() navItems: NavItem[] = [];
+
+  /** Brand logo resolved at render time — explicit [logoSrc] input, then the
+   *  HOP_LOGO_SRC token, then the embedded Heretto Open Projects logo. Computed
+   *  in a getter (not a field default) so router `withComponentInputBinding()`,
+   *  which resets unbound inputs to undefined, can't clobber the fallback. */
+  get brandLogoSrc(): string {
+    return this.logoSrc ?? this.hopLogoSrc ?? HERETTO_OPEN_PROJECTS_LOGO;
+  }
 
   private authService = inject(HopAuthService);
   private organizationService = inject(HopOrganizationService);
