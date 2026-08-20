@@ -1,0 +1,71 @@
+name: Publish hop-ui package
+
+# Builds the @heretto/hop-ui Angular library and attaches the npm-installable
+# tarball to a GitHub release. The auto-generated source archive GitHub adds to
+# every release is NOT npm-installable (its root is <repo>-<version>/ rather than
+# package/, and it carries no ng-packagr output), so downstream apps need this
+# artifact to depend on the library by URL.
+
+on:
+  release:
+    types: [published]
+  # Allows attaching the tarball to a release that already exists.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the package to (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve target tag
+        id: target
+        run: echo "tag=${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ui/ has no package-lock.json committed, so npm ci is not usable here.
+      - name: Install build dependencies
+        working-directory: ui
+        run: npm install --no-audit --no-fund
+
+      - name: Verify package version matches the release tag
+        working-directory: ui
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          pkg_version="$(node -p "require('./package.json').version")"
+          tag_version="${TAG#v}"
+          if [ "$pkg_version" != "$tag_version" ]; then
+            echo "::error::ui/package.json version ($pkg_version) does not match release tag $TAG. Bump ui/package.json before tagging, or the published tarball will not match the URL consumers pin."
+            exit 1
+          fi
+
+      - name: Build library
+        working-directory: ui
+        run: npm run build
+
+      - name: Pack npm tarball
+        id: pack
+        working-directory: ui/dist/hop-ui
+        run: |
+          filename="$(npm pack --json | jq -r '.[0].filename')"
+          echo "path=ui/dist/hop-ui/$filename" >> "$GITHUB_OUTPUT"
+          echo "Packed $filename"
+
+      - name: Attach tarball to release
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" "${{ steps.pack.outputs.path }}" --clobber --repo "$GITHUB_REPOSITORY"
