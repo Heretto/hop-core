@@ -67,11 +67,28 @@ docker compose up --build
 
 ## Using hop-core in your own app
 
+> **Read [`AGENTS.md`](AGENTS.md) first.** It is a short integration checklist
+> covering the failure modes that bite every new hop-core app — filesystem-path
+> dependencies, the required settings that have no defaults, the icon font the
+> theme does not ship, and the Angular/CSP interaction that silently disables
+> your entire stylesheet. Each item is a command you can run.
+
 ### 1. Install
 
 ```bash
-pip install git+https://github.com/Heretto/hop-core.git
+pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.1"
 ```
+
+Pin to a release tag rather than tracking `main`, so builds are reproducible.
+In `requirements.txt`:
+
+```
+hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.1
+```
+
+Never install from a local path (`file:///…`) in a committed dependency file —
+it works only on the machine that wrote it and can never resolve inside a
+Docker build.
 
 ### 2. Define your settings
 

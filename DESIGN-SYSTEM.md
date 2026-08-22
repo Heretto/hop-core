@@ -20,16 +20,46 @@ the tokens; custom interactions never have to fight the system.
 
 ## 1. Integration (three steps)
 
-### Step 1 — Resolve the library
+### Step 1 — Install the library
 
 ```jsonc
-// tsconfig.json (when consuming from source in this repo)
+// package.json — the packaged tarball attached to a hop-core release
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.1/heretto-hop-ui-0.1.1.tgz"
+```
+
+Pin to a release tag so builds are reproducible. Asset names follow the tag:
+`vX.Y.Z` produces `heretto-hop-ui-X.Y.Z.tgz`.
+
+Two traps worth knowing:
+
+- **npm cannot install from a subdirectory of a git repo**, so there is no
+  `git+https://…` form for this package — it lives in `ui/`. Use the asset URL.
+- **The `vX.Y.Z.tar.gz` that GitHub attaches to every release is not an npm
+  package.** Its root is `hop-core-X.Y.Z/` rather than `package/` and it carries
+  no build output; `npm install` fails with `ENOENT: Could not read package.json`.
+  Use `heretto-hop-ui-*.tgz`.
+
+<details>
+<summary>Consuming from source (inside this repo only)</summary>
+
+`demo/` resolves the library from source through a tsconfig alias, so demo builds
+compile the library and give the fastest full check:
+
+```jsonc
+// tsconfig.json
 {
   "compilerOptions": {
     "paths": { "@heretto/hop-ui": ["path/to/hop-core/ui/src/public-api"] }
   }
 }
 ```
+
+Do **not** use this in a consuming application. A path reaching outside the
+project works only on one machine and can never resolve inside a Docker build.
+It also bypasses the packaged artifact entirely, so packaging regressions go
+undetected.
+
+</details>
 
 ### Step 2 — Fonts in `src/index.html` `<head>`
 
@@ -46,19 +76,49 @@ the tokens; custom interactions never have to fight the system.
 
 Put `class="mat-typography"` on `<body>`.
 
+**The package does not ship these fonts — loading them is the application's job**,
+and Material Symbols is load-bearing rather than cosmetic. The theme points
+`mat-icon` at it, so if it never loads, every icon renders its ligature *name*:
+a button reads `play_arrow` instead of showing a play glyph.
+
+Two consequences:
+
+- **Allow both hosts in your CSP**: `fonts.googleapis.com` under `style-src`,
+  `fonts.gstatic.com` under `font-src`.
+- **Consider self-hosting for restricted deployments.** Google's variable icon
+  font is ~3 MB, and browser font-blocking settings or egress rules can prevent
+  it loading at all. A static instance pinned to the values the theme requests
+  (`FILL` 0, `wght` 300, `opsz` 24) is ~478 KB, renders identically, and keeps all
+  glyphs — so dynamically chosen icon names still resolve.
+
 ### Step 3 — One mixin in the global stylesheet
 
 ```scss
 // src/styles.scss — this is the ENTIRE required global stylesheet
-@use 'path/to/hop-core/ui/src/lib/theme/index' as hop;
+@use '@heretto/hop-ui/theme' as hop;
 
 @include hop.hop-core-theme();
 ```
+
+Requires `@heretto/hop-ui` >= 0.1.1, which is the first release to ship the theme
+stylesheets inside the package. It resolves from `node_modules` with no
+`angular.json` or `stylePreprocessorOptions.includePaths` changes. Inside this
+repo, `demo/` uses the source path `'path/to/hop-core/ui/src/lib/theme/index'`
+instead — that form is for in-repo use only, per Step 1.
 
 The mixin emits: all semantic CSS custom properties (section 2), the Material
 M3 theme + `--mat-sys-*` bridge, a CSS reset, typography, all Material
 component overrides (section 5), and the utility classes (section 7). Nothing
 renders until the mixin is included.
+
+> **If you serve the app with a Content-Security-Policy, check one more thing.**
+> Angular's production build defaults to `optimization.styles.inlineCritical`,
+> which loads your stylesheet inert (`media="print"`) and activates it with an
+> inline `onload` handler. A CSP without `'unsafe-inline'` for scripts blocks
+> that handler, so the stylesheet downloads with HTTP 200 and is never applied —
+> the theme silently does not take effect, and icons render as their ligature
+> names. Set `"inlineCritical": false` on the production configuration. See
+> [`AGENTS.md`](AGENTS.md) §4.
 
 ---
 
