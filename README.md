@@ -159,18 +159,18 @@ app = create_hop_app(
 
 ### 4. Wire up the Angular UI
 
-Install the library source alongside your Angular app and add a `paths` alias:
+Install the packaged library from a hop-core release:
 
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "paths": {
-      "@heretto/hop-ui": ["path/to/hop-core/ui/src/public-api"]
-    }
-  }
-}
+```jsonc
+// package.json
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.1/heretto-hop-ui-0.1.1.tgz"
 ```
+
+npm cannot install this package from a git URL (it lives in `ui/`), and the
+`vX.Y.Z.tar.gz` GitHub attaches to every release is not an npm package — see
+[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) §1. Resolving the library from source
+through a `tsconfig` `paths` alias is for work **inside this repo only**: a path
+reaching outside the project resolves on one machine and never in a Docker build.
 
 Configure routes and the auth interceptor:
 
@@ -210,6 +210,11 @@ M3) — two steps give every hop-core app a consistent look and feel:
 Material Symbols Rounded — the theme points `<mat-icon>` at the Symbols face,
 so icons render in the light, unfilled line style):
 
+The package does **not** ship these fonts — loading them is the application's
+job, and Material Symbols is load-bearing: if it fails to load, every icon
+renders its ligature name instead of a glyph. Allow `fonts.googleapis.com`
+(`style-src`) and `fonts.gstatic.com` (`font-src`) in any CSP.
+
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -224,7 +229,7 @@ and component overrides):
 
 ```scss
 // styles.scss
-@use 'path/to/hop-core/ui/src/lib/theme/index' as hop;
+@use '@heretto/hop-ui/theme' as hop;
 
 @include hop.hop-core-theme();
 ```
