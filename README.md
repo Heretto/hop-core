@@ -67,11 +67,28 @@ docker compose up --build
 
 ## Using hop-core in your own app
 
+> **Read [`AGENTS.md`](AGENTS.md) first.** It is a short integration checklist
+> covering the failure modes that bite every new hop-core app — filesystem-path
+> dependencies, the required settings that have no defaults, the icon font the
+> theme does not ship, and the Angular/CSP interaction that silently disables
+> your entire stylesheet. Each item is a command you can run.
+
 ### 1. Install
 
 ```bash
-pip install git+https://github.com/Heretto/hop-core.git
+pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.1"
 ```
+
+Pin to a release tag rather than tracking `main`, so builds are reproducible.
+In `requirements.txt`:
+
+```
+hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.1
+```
+
+Never install from a local path (`file:///…`) in a committed dependency file —
+it works only on the machine that wrote it and can never resolve inside a
+Docker build.
 
 ### 2. Define your settings
 
@@ -142,18 +159,18 @@ app = create_hop_app(
 
 ### 4. Wire up the Angular UI
 
-Install the library source alongside your Angular app and add a `paths` alias:
+Install the packaged library from a hop-core release:
 
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "paths": {
-      "@heretto/hop-ui": ["path/to/hop-core/ui/src/public-api"]
-    }
-  }
-}
+```jsonc
+// package.json
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.1/heretto-hop-ui-0.1.1.tgz"
 ```
+
+npm cannot install this package from a git URL (it lives in `ui/`), and the
+`vX.Y.Z.tar.gz` GitHub attaches to every release is not an npm package — see
+[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) §1. Resolving the library from source
+through a `tsconfig` `paths` alias is for work **inside this repo only**: a path
+reaching outside the project resolves on one machine and never in a Docker build.
 
 Configure routes and the auth interceptor:
 
@@ -193,6 +210,11 @@ M3) — two steps give every hop-core app a consistent look and feel:
 Material Symbols Rounded — the theme points `<mat-icon>` at the Symbols face,
 so icons render in the light, unfilled line style):
 
+The package does **not** ship these fonts — loading them is the application's
+job, and Material Symbols is load-bearing: if it fails to load, every icon
+renders its ligature name instead of a glyph. Allow `fonts.googleapis.com`
+(`style-src`) and `fonts.gstatic.com` (`font-src`) in any CSP.
+
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -207,7 +229,7 @@ and component overrides):
 
 ```scss
 // styles.scss
-@use 'path/to/hop-core/ui/src/lib/theme/index' as hop;
+@use '@heretto/hop-ui/theme' as hop;
 
 @include hop.hop-core-theme();
 ```

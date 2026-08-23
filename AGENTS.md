@@ -1,0 +1,275 @@
+# Building on hop-core — integration checklist
+
+For agents (and people) wiring a new application to hop-core, or auditing one
+that already exists. Read it before writing integration code, and again before
+declaring a deployment working.
+
+Every item below comes from a real failure in a real hop-core app. Each one is
+written as a **check** you can run, the **why**, and the **fix**. Prefer running
+the check to assuming — most of these fail silently.
+
+> Note for maintainers of this repo: `demo/` consumes the UI library **from
+> source** via a tsconfig alias, so nothing here exercises the published
+> package. Packaging regressions therefore survive releases — the theme
+> stylesheets were missing from `@heretto/hop-ui` for its entire first release
+> without any test noticing. When changing packaging, verify against the built
+> tarball, not the demo.
+
+---
+
+## 1. Dependencies: never reference hop-core by filesystem path
+
+**Check**
+
+```bash
+grep -rn "file://\|file:\.\.\|hop-core/ui/dist" requirements.txt package.json 2>/dev/null
+grep -rn "hop-core/ui/src" --include="*.scss" --include="*.ts" . 2>/dev/null
+```
+
+Both must return nothing.
+
+**Why.** A path like `hop-core @ file:///Users/someone/hop-core` or
+`"@heretto/hop-ui": "file:../../hop-core/ui/dist/..."` works only on the machine
+that wrote it. It breaks on every other checkout, and it can *never* work inside
+a Docker build, because the path lies outside the build context. This is the
+single most common way a hop-core app becomes unbuildable, and it is usually
+invisible until someone else clones the repo.
+
+**Fix.** Consume both packages as versioned artifacts.
+
+```bash
+# requirements.txt — pin to a release tag, not a branch
+hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.1
+```
+
+```jsonc
+// package.json — the packaged tarball attached to the release
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.1/heretto-hop-ui-0.1.1.tgz"
+```
+
+Pin to a tag rather than `main` so builds are reproducible. The Python install
+needs `git` and network access available in the build image.
+
+**Two traps specific to the npm package:**
+
+- **npm cannot install from a subdirectory of a git repo.** The neat
+  `git+https://…@tag` form that works for pip does not work for `@heretto/hop-ui`,
+  because the package lives in `ui/`. Use the release asset URL.
+- **The auto-generated source archive is not installable.** Every GitHub release
+  shows a `vX.Y.Z.tar.gz` that GitHub creates automatically. It is *not* an npm
+  package: its root directory is `hop-core-X.Y.Z/` rather than `package/`, and it
+  contains no build output. `npm install` against it fails with
+  `ENOENT: Could not read package.json`. Use the `heretto-hop-ui-*.tgz` asset,
+  which CI builds from the tagged source.
+
+Asset names follow the tag: tag `vX.Y.Z` produces `heretto-hop-ui-X.Y.Z.tgz`.
+The release workflow fails the build if `ui/package.json` and the tag disagree,
+so the URL is always predictable.
+
+---
+
+## 2. The theme comes from the package; the icon font does not
+
+**Check**
+
+```bash
+grep -n "@use" src/styles.scss        # expect '@heretto/hop-ui/theme'
+grep -c "Material+Symbols" src/index.html   # expect 1, or a self-hosted @font-face
+```
+
+**Why.** The theme mixin is the entire design system — nothing renders without
+it. Importing it through a relative path into this repo's `ui/src/` only resolves
+when hop-core happens to sit at one exact location on disk.
+
+Separately, the theme points `mat-icon` at `'Material Symbols Rounded'` but the
+package **does not ship that font**. Every consuming app must load it, and must
+allow its source in any Content-Security-Policy. If the font is missing, icons
+silently render as their ligature *name* — a button shows the text
+`play_arrow` instead of a play glyph.
+
+**Fix.**
+
+```scss
+// src/styles.scss — requires @heretto/hop-ui >= 0.1.1
+@use '@heretto/hop-ui/theme' as hop;
+
+@include hop.hop-core-theme();
+```
+
+This resolves from `node_modules` with no `angular.json` or `includePaths`
+changes. Load the font per §2 of [`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md), and if
+your deployment is offline, air-gapped, or behind restrictive egress, self-host
+it instead of relying on Google Fonts at runtime.
+
+---
+
+## 3. Required settings have no defaults
+
+**Check**
+
+```bash
+python -c "from settings import get_settings; get_settings()"
+```
+
+A missing value raises a Pydantic validation error naming the field.
+
+**Why.** `HopCoreSettings` declares these with **no default**, so the app cannot
+start without them:
+
+| Setting | Notes |
+|---|---|
+| `APP_SECRET_KEY` | |
+| `JWT_SECRET_KEY` | distinct value from the above |
+| `ENCRYPTION_KEY` | minimum 16 characters |
+| `DATABASE_URL` | SQLAlchemy URL |
+| `REDIS_URL` | required by `HopCoreSettings`; override it to optional in your subclass if you do not use Redis |
+
+**`ENCRYPTION_KEY` is not rotatable.** It derives the Fernet key that encrypts
+stored credentials. Change or lose it and every existing encrypted row becomes
+unreadable. Back it up somewhere recoverable, keep it out of version control,
+and never let a setup script regenerate one that already exists.
+
+**Fix.** Generate secrets per environment (`openssl rand -hex 32`) and fail loudly
+when they are absent rather than defaulting. In Docker Compose, guard them so the
+failure happens at compose time with a readable message:
+
+```yaml
+environment:
+  - APP_SECRET_KEY=${APP_SECRET_KEY:?not set — see .env.example}
+```
+
+Beware of having **two** `.env` files — one for local runs (read relative to the
+backend's working directory) and one at the repo root for Compose. Document which
+is which, or they drift.
+
+---
+
+## 4. Angular production builds vs. a strict CSP — the silent one
+
+**Check** — after a production build, inspect the emitted HTML:
+
+```bash
+grep -o 'onload="[^"]*"' dist/*/index.html
+grep -o 'media="print"' dist/*/index.html
+```
+
+If either matches **and** your CSP lacks `'unsafe-inline'` for scripts, your
+stylesheet is not being applied.
+
+**Why.** Angular's production default `optimization.styles.inlineCritical`
+inlines above-the-fold CSS into a `<style>` block and loads the real stylesheet
+inert:
+
+```html
+<link rel="stylesheet" href="styles-*.css" media="print" onload="this.media='all'">
+```
+
+`media="print"` means it does not apply until that inline `onload` handler flips
+it. A CSP of `default-src 'self'` with no `script-src` blocks inline event
+handlers, so the handler never runs and **the stylesheet never activates**. It
+downloads with HTTP 200 and is silently ignored.
+
+Only the inlined critical subset applies. That subset does not include the
+`mat-icon` font-family rule, so the most visible symptom is icons rendering as
+ligature text — which sends you hunting for a font problem that does not exist.
+Material and `hop-*` component styles are also quietly wrong.
+
+**Fix** — in `angular.json`, on the production configuration:
+
+```jsonc
+"optimization": {
+  "scripts": true,
+  "fonts": true,
+  "styles": { "minify": true, "inlineCritical": false }
+}
+```
+
+Do **not** instead add `'unsafe-inline'` to `script-src`. That trades a real XSS
+protection for a rendering bug.
+
+---
+
+## 5. API surface conventions
+
+**Check**
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" localhost:PORT/api/v1/<collection>/   # 401 when unauthenticated
+curl -s localhost:PORT/openapi.json | python -c "import json,sys; print(*sorted(json.load(sys.stdin)['paths']),sep='\n')"
+```
+
+**Why.** Three things surprise people:
+
+- Routes live under **`api_prefix`**, default `/api/v1` — not `/api`.
+- **Collection routes require a trailing slash.** `/api/v1/things/` is correct;
+  `/api/v1/things` returns 404. This looks exactly like a missing route.
+- **Every application route requires authentication.** Unauthenticated requests
+  get `401 {"detail":"Not authenticated"}`, which is correct behaviour, not a
+  misconfiguration. Any unauthenticated health endpoint must be defined outside
+  the prefix by your app; hop-core does not provide one.
+
+**Fix.** Read the live surface from `/openapi.json`, or browse `/docs`. Generated
+docs cannot go stale; a hand-maintained endpoint list in a README always does.
+
+---
+
+## 6. Migrations see hop-core's tables
+
+**Check**
+
+```bash
+grep -n "include_object\|OUR_TABLES\|target_metadata" migrations/env.py
+```
+
+**Why.** Your models and hop-core's share one declarative `Base`, so
+`target_metadata` covers `users`, `organizations`, `organization_members`,
+`organization_invitations` and `credentials` as well as your own. Run
+`alembic revision --autogenerate` without filtering and it will propose dropping
+or recreating hop-core's schema.
+
+The usual fix is an `include_object` filter naming your own tables — which
+introduces its own trap: **the filter has to be updated when you add a table.**
+A table missing from the list is invisible to autogenerate, and a later
+`--autogenerate` run may propose dropping it.
+
+**Fix.** Filter `include_object`, keep the table list next to the models so the
+two are updated together, and prefer hand-written revisions for schema changes.
+Use `render_as_batch=True` for SQLite, which cannot `ALTER TABLE` in place.
+
+---
+
+## 7. Runtime constraints
+
+- **Python 3.11+.**
+- **Single backend replica** if you schedule work with an in-process scheduler
+  such as APScheduler. There is no distributed lock, so every replica fires every
+  job. Scale vertically, or move to a shared job store first.
+- **SQLite is stateful.** On Kubernetes that means a `StatefulSet` with a
+  `PersistentVolumeClaim`, not a rolling `Deployment`.
+
+---
+
+## 8. Verify the deployment, not the build
+
+A green build is not a working app. These checks catch the failures that look
+like success:
+
+```bash
+# The container is running the code you just wrote — compose does NOT rebuild
+# on source change, and a stale build context can report COPY as CACHED even
+# when files changed.
+docker compose exec <service> grep -n "<a string you just added>" /app/main.py
+docker compose build --no-cache <service>     # when the above disagrees
+
+# The stylesheet is actually applied (see §4)
+curl -s localhost:PORT/ | grep -o 'media="print"'
+
+# Health reports the truth. Probe the database with text("SELECT 1"), not a raw
+# string — SQLAlchemy 2.0 rejects the latter, and a bare `except` turns that
+# into a permanent, unexplained "degraded".
+curl -s localhost:PORT/api/health
+```
+
+Read the browser console before concluding anything about missing styles, fonts,
+or icons. A CSP violation there names the blocked resource directly and will save
+you from diagnosing the wrong layer entirely.

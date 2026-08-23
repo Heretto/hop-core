@@ -4,6 +4,16 @@ Platform library for building multi-tenant AI-powered apps: a Python/FastAPI
 backend package (`src/hop_core/`) + an Angular 19 UI library
 (`ui/` → `@heretto/hop-ui`) + a runnable example app (`demo/`).
 
+## Read this first when integrating a consuming app
+
+**[`AGENTS.md`](AGENTS.md)** is the integration checklist for apps built on
+hop-core: packaging, required settings, the icon font, the Angular/CSP
+interaction that silently disables the stylesheet, migrations against the shared
+`Base`, and how to verify a deployment rather than trust a green build. Every
+item came from a real failure. Keep it updated when integration requirements
+change — and note that `demo/` consumes the library from source, so it does not
+exercise the published package.
+
 ## Read this first when doing UI work
 
 **[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md)** is the complete, self-contained
