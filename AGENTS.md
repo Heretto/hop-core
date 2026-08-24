@@ -8,6 +8,26 @@ Every item below comes from a real failure in a real hop-core app. Each one is
 written as a **check** you can run, the **why**, and the **fix**. Prefer running
 the check to assuming — most of these fail silently.
 
+## Run the checks automatically
+
+Installing hop-core provides `hop-doctor`, which audits a project against
+sections 1–4 and 6 of this document:
+
+```bash
+hop-doctor              # human-readable report; exits 1 on failures
+hop-doctor --json       # structured findings, for agents and CI
+hop-doctor --strict     # also exit 1 on warnings
+```
+
+It reports `FAIL` only when the repository proves something is broken, `WARN`
+when configuration could legitimately come from elsewhere (host environment,
+ingress, a secret manager), and `SKIP` when a thing is absent or undeterminable.
+It never prints secret values. The compose check needs PyYAML and skips itself
+without it — `pip install "hop-core[doctor]"` enables it.
+
+`hop-doctor` catches the mechanical mistakes. The judgement calls in sections 5,
+7 and 8 still need reading.
+
 > Note for maintainers of this repo: `demo/` consumes the UI library **from
 > source** via a tsconfig alias, so nothing here exercises the published
 > package. Packaging regressions therefore survive releases — the theme
