@@ -20,16 +20,31 @@ permissions:
   contents: write
 
 jobs:
-  package:
+  resolve:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.target.outputs.tag }}
     steps:
       - name: Resolve target tag
         id: target
         run: echo "tag=${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
 
+  # Prove the tagged source produces a package an external app can actually
+  # consume, before anything is attached to the release. Publishing a broken
+  # tarball is worse than failing the release: consumers pin the URL.
+  verify:
+    needs: resolve
+    uses: ./.github/workflows/verify-package.yml
+    with:
+      ref: ${{ needs.resolve.outputs.tag }}
+
+  package:
+    needs: [resolve, verify]
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ steps.target.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -43,7 +58,7 @@ jobs:
       - name: Verify package version matches the release tag
         working-directory: ui
         env:
-          TAG: ${{ steps.target.outputs.tag }}
+          TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           pkg_version="$(node -p "require('./package.json').version")"
           tag_version="${TAG#v}"
@@ -66,6 +81,6 @@ jobs:
 
       - name: Attach tarball to release
         env:
-          TAG: ${{ steps.target.outputs.tag }}
+          TAG: ${{ needs.resolve.outputs.tag }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" "${{ steps.pack.outputs.path }}" --clobber --repo "$GITHUB_REPOSITORY"
