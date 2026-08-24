@@ -78,7 +78,9 @@ jobs:
       # source consumer cannot resolve. What is left has to come from the package.
       - name: Stage the demo as an external consumer
         run: |
-          APP="$RUNNER_TEMP/consumer"
+          # Exported, not just assigned: the node step below reads it from the
+          # environment, and $GITHUB_ENV only applies to subsequent steps.
+          export APP="$RUNNER_TEMP/consumer"
           cp -R demo/frontend "$APP"
           rm -rf "$APP/node_modules" "$APP/dist"
           echo "APP=$APP" >> "$GITHUB_ENV"
