@@ -47,11 +47,12 @@ jobs:
           cache: npm
           cache-dependency-path: demo/frontend/package-lock.json
 
-      # ui/ has no package-lock.json committed, so npm ci is not usable here.
+      # npm ci, not npm install: this job gates releases, so it must not be
+      # able to fail on an unrelated upstream publish.
       - name: Build and pack the library
         working-directory: ui
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm run build
           cd dist/hop-ui
           filename="$(npm pack --json | jq -r '.[0].filename')"

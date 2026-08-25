@@ -50,10 +50,10 @@ jobs:
         with:
           node-version: "20"
 
-      # ui/ has no package-lock.json committed, so npm ci is not usable here.
+      # npm ci so the published tarball is built from pinned tool versions.
       - name: Install build dependencies
         working-directory: ui
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Verify package version matches the release tag
         working-directory: ui
