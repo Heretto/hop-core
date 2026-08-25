@@ -25,7 +25,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dita = ["lxml>=5.0"]
-dev = ["pytest", "pytest-asyncio", "httpx", "anyio[trio]", "lxml>=5.0"]
+# hop-doctor works without PyYAML; the compose check skips itself if it is absent.
+doctor = ["PyYAML>=6.0"]
+dev = ["pytest", "pytest-asyncio", "httpx", "anyio[trio]", "lxml>=5.0", "PyYAML>=6.0"]
+
+[project.scripts]
+hop-doctor = "hop_core.doctor:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
