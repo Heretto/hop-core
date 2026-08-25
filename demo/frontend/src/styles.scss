@@ -1,5 +1,24 @@
 // hop-ui design system — a single include themes the whole app (tokens,
 // Material M3 theme + bridge, base styles, component overrides).
+//
+// DO NOT COPY THIS IMPORT PATH INTO YOUR APP.
+//
+// This demo lives inside the hop-core repository and deliberately consumes the
+// library from source, so that editing ui/src/ shows up here immediately. The
+// TypeScript imports hide that behind a tsconfig paths alias and so still read
+// like an external app's (`from '@heretto/hop-ui'`); sass has no equivalent, so
+// this one line is the only place the arrangement shows.
+//
+// An external application writes:
+//
+//   @use '@heretto/hop-ui/theme' as hop;
+//
+// which resolves from node_modules and requires @heretto/hop-ui >= 0.1.1. A
+// relative path like the one below reaches outside the project: it resolves only
+// when hop-core happens to sit at one exact location on disk, and never inside a
+// Docker build, where that path is outside the build context. See DESIGN-SYSTEM.md
+// section 1 for the full integration steps, and AGENTS.md section 2 for how this
+// fails in practice.
 @use '../../../ui/src/lib/theme/index' as hop;
 
 @include hop.hop-core-theme();
