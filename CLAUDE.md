@@ -51,6 +51,11 @@ cd ui && npm run build
 - `ui/` resolves Angular via a local `node_modules` symlink →
   `../demo/frontend/node_modules` (gitignored; recreate after fresh clone:
   `ln -s ../demo/frontend/node_modules ui/node_modules`).
+- `ui/package-lock.json` is committed so CI builds the library from pinned tool
+  versions — releases are gated on a CI job, and an unpinned install lets an
+  unrelated ng-packagr or TypeScript publish block a release. CI uses `npm ci`.
+  Locally, prefer the symlink above: `npm ci` inside `ui/` deletes
+  `node_modules`, which replaces that symlink with a full duplicate install.
 - The demo consumes the library from source via a tsconfig paths alias
   (`@heretto/hop-ui` → `../../ui/src/public-api`), so demo builds compile the
   library — building the demo is the fastest full check.

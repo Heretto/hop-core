@@ -1,0 +1,146 @@
+name: Verify published package
+
+# Builds @heretto/hop-ui exactly as a release would, then consumes the packed
+# tarball the way an external application does — from node_modules, with no
+# alias back into this repository.
+#
+# demo/ normally resolves the library from source through a tsconfig paths
+# alias, which is fast for development but means nothing here exercises the
+# artifact consumers actually install. That gap is not theoretical: the theme
+# stylesheets were absent from the package for its entire first release, and
+# every test still passed, because no test ever installed the package.
+#
+# This job closes that gap. It neutralises the alias, installs the tarball, and
+# builds — so a packaging regression fails CI instead of shipping.
+
+on:
+  pull_request:
+    paths:
+      - "ui/**"
+      - "demo/frontend/**"
+      - ".github/workflows/verify-package.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ui/**"
+      - "demo/frontend/**"
+      - ".github/workflows/verify-package.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Ref to verify. Defaults to the triggering ref."
+        type: string
+        required: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: demo/frontend/package-lock.json
+
+      # npm ci, not npm install: this job gates releases, so it must not be
+      # able to fail on an unrelated upstream publish.
+      - name: Build and pack the library
+        working-directory: ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          cd dist/hop-ui
+          filename="$(npm pack --json | jq -r '.[0].filename')"
+          echo "TARBALL=$PWD/$filename" >> "$GITHUB_ENV"
+          echo "Packed $filename"
+
+      - name: Assert the tarball contains what consumers need
+        run: |
+          missing=0
+          for entry in package/package.json package/theme/index.scss package/fesm2022; do
+            if ! tar -tzf "$TARBALL" | grep -q "^$entry"; then
+              echo "::error::$entry is missing from the packed tarball"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "The package is incomplete. Check the assets entry in ui/ng-package.json."
+            exit 1
+          fi
+          echo "Tarball contents look complete:"
+          tar -tzf "$TARBALL" | head -20
+
+      # Copy the demo out of the repository so the relative paths that make it a
+      # source consumer cannot resolve. What is left has to come from the package.
+      - name: Stage the demo as an external consumer
+        run: |
+          # Exported, not just assigned: the node step below reads it from the
+          # environment, and $GITHUB_ENV only applies to subsequent steps.
+          export APP="$RUNNER_TEMP/consumer"
+          cp -R demo/frontend "$APP"
+          rm -rf "$APP/node_modules" "$APP/dist"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+
+          node -e '
+            const fs = require("fs");
+            const p = process.env.APP + "/tsconfig.json";
+            let cfg;
+            try {
+              cfg = JSON.parse(fs.readFileSync(p, "utf8"));
+            } catch (e) {
+              console.error("::error::could not parse demo tsconfig.json: " + e.message);
+              process.exit(1);
+            }
+            const paths = (cfg.compilerOptions || {}).paths || {};
+            if (!("@heretto/hop-ui" in paths)) {
+              console.error("::error::expected a @heretto/hop-ui paths alias in the demo tsconfig; " +
+                            "if it moved, this workflow is no longer testing the package");
+              process.exit(1);
+            }
+            delete paths["@heretto/hop-ui"];
+            fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n");
+            console.log("Removed the source alias; @heretto/hop-ui must now resolve from node_modules.");
+          '
+
+          styles="$APP/src/styles.scss"
+          grep -q "ui/src/lib/theme" "$styles" || {
+            echo "::error::expected the demo stylesheet to import the theme from source; if it moved, this workflow is no longer testing the packaged theme"
+            exit 1
+          }
+          sed -i "s|@use '[^']*ui/src/lib/theme/index'|@use '@heretto/hop-ui/theme'|" "$styles"
+          echo "Theme import is now: $(grep -n '@use' "$styles")"
+
+      - name: Install dependencies and the packed library
+        working-directory: ${{ env.APP }}
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-audit --no-fund "$TARBALL"
+          test -d node_modules/@heretto/hop-ui || {
+            echo "::error::@heretto/hop-ui did not install"; exit 1; }
+          test -f node_modules/@heretto/hop-ui/theme/index.scss || {
+            echo "::error::the installed package has no theme/index.scss"; exit 1; }
+
+      - name: Build the consumer against the package
+        working-directory: ${{ env.APP }}
+        run: npx ng build --configuration production
+
+      - name: Confirm the theme actually compiled into the output
+        working-directory: ${{ env.APP }}
+        run: |
+          css="$(find dist -name 'styles-*.css' -print -quit)"
+          if [ -z "$css" ]; then
+            echo "::error::no global stylesheet was emitted"
+            exit 1
+          fi
+          # The mixin emits Material overrides; if the theme resolved to nothing
+          # the build would still succeed but the stylesheet would be inert.
+          if ! grep -q "mat-mdc" "$css"; then
+            echo "::error::$css does not contain themed Material styles — the theme import resolved to nothing"
+            exit 1
+          fi
+          echo "Themed stylesheet emitted: $css ($(wc -c < "$css") bytes)"
