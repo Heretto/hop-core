@@ -20,6 +20,9 @@ permissions:
   contents: write
 
 jobs:
+  # Resolve the tag and confirm every version source agrees with it, before any
+  # expensive work runs. The Python package and the UI library share one tag, and
+  # v0.1.1 shipped reporting 0.1.0 because only ui/package.json was checked.
   resolve:
     runs-on: ubuntu-latest
     outputs:
@@ -28,6 +31,51 @@ jobs:
       - name: Resolve target tag
         id: target
         run: echo "tag=${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.target.outputs.tag }}
+
+      - name: Verify every version source matches the release tag
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          tag_version="${TAG#v}"
+          mismatch=0
+
+          # Read a version without letting a missing or malformed file dump a
+          # stack trace into the log; absence is reported as a mismatch below.
+          json_version() {
+            [ -f "$1" ] || return 0
+            node -p "require('./$1').version || ''" 2>/dev/null || true
+          }
+          grep_version() {  # $1 = key, $2 = file
+            [ -f "$2" ] || return 0
+            sed -n "s/^$1 = \"\(.*\)\"/\1/p" "$2" 2>/dev/null | head -1
+          }
+
+          # Report every disagreement, not just the first, so one commit fixes all.
+          check() {
+            if [ -z "$2" ]; then
+              echo "::error::$1 is missing or unreadable (expected version \"$tag_version\")"
+              mismatch=1
+            elif [ "$2" = "$tag_version" ]; then
+              echo "  ok   $1 = $2"
+            else
+              echo "::error::$1 is \"$2\" but the release tag is $TAG (expected \"$tag_version\")"
+              mismatch=1
+            fi
+          }
+
+          check "ui/package.json"      "$(json_version ui/package.json)"
+          check "ui/package-lock.json" "$(json_version ui/package-lock.json)"
+          check "pyproject.toml"       "$(grep_version version pyproject.toml)"
+          check "hop_core.__version__" "$(grep_version __version__ src/hop_core/__init__.py)"
+
+          if [ "$mismatch" -ne 0 ]; then
+            echo "::error::Version sources disagree with the tag. Bump them together in one commit before tagging: the tarball filename and the package metadata both derive from these, and consumers pin the resulting URL."
+            exit 1
+          fi
 
   # Prove the tagged source produces a package an external app can actually
   # consume, before anything is attached to the release. Publishing a broken
@@ -54,18 +102,6 @@ jobs:
       - name: Install build dependencies
         working-directory: ui
         run: npm ci --no-audit --no-fund
-
-      - name: Verify package version matches the release tag
-        working-directory: ui
-        env:
-          TAG: ${{ needs.resolve.outputs.tag }}
-        run: |
-          pkg_version="$(node -p "require('./package.json').version")"
-          tag_version="${TAG#v}"
-          if [ "$pkg_version" != "$tag_version" ]; then
-            echo "::error::ui/package.json version ($pkg_version) does not match release tag $TAG. Bump ui/package.json before tagging, or the published tarball will not match the URL consumers pin."
-            exit 1
-          fi
 
       - name: Build library
         working-directory: ui
