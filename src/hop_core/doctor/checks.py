@@ -90,7 +90,7 @@ def check_python_dependency(project: Project) -> list[Finding]:
                         "resolve inside a Docker build, where the path is outside the\n"
                         "build context.",
                         'Use a pinned git tag, e.g. "hop-core @ '
-                        'git+https://github.com/Heretto/hop-core.git@v0.1.1".',
+                        'git+https://github.com/Heretto/hop-core.git@v0.1.2".',
                         loc,
                     )
                 ]
@@ -113,7 +113,7 @@ def check_python_dependency(project: Project) -> list[Finding]:
                         "Every fresh install may resolve to a different commit, so builds\n"
                         "are not reproducible and an upstream change can break this app\n"
                         "without anything here changing.",
-                        "Append a release tag, e.g. '...hop-core.git@v0.1.1'.",
+                        "Append a release tag, e.g. '...hop-core.git@v0.1.2'.",
                         loc,
                     )
                 ]

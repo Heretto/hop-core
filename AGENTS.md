@@ -59,12 +59,12 @@ invisible until someone else clones the repo.
 
 ```bash
 # requirements.txt — pin to a release tag, not a branch
-hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.1
+hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.2
 ```
 
 ```jsonc
 // package.json — the packaged tarball attached to the release
-"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.1/heretto-hop-ui-0.1.1.tgz"
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.2/heretto-hop-ui-0.1.2.tgz"
 ```
 
 Pin to a tag rather than `main` so builds are reproducible. The Python install
@@ -243,18 +243,38 @@ grep -n "include_object\|OUR_TABLES\|target_metadata" migrations/env.py
 
 **Why.** Your models and hop-core's share one declarative `Base`, so
 `target_metadata` covers `users`, `organizations`, `organization_members`,
-`organization_invitations` and `credentials` as well as your own. Run
-`alembic revision --autogenerate` without filtering and it will propose dropping
-or recreating hop-core's schema.
+`organization_invitations` and `credentials` as well as your own. Unfiltered,
+`alembic revision --autogenerate` writes migrations against hop-core's schema —
+measured on a real app, thirteen spurious `modify_type` operations, because
+hop-core's UUID columns reflect out of SQLite as `NUMERIC`. Those migrations
+rewrite tables your app does not own.
 
-The usual fix is an `include_object` filter naming your own tables — which
+The usual fix is an `include_object` filter naming your own tables, which
 introduces its own trap: **the filter has to be updated when you add a table.**
-A table missing from the list is invisible to autogenerate, and a later
-`--autogenerate` run may propose dropping it.
+A table missing from the list is excluded from the comparison altogether. It is
+not dropped — it becomes invisible, so changes to it never reach a migration and
+the schema drifts unnoticed. That is quieter than a bad migration, and worse for
+being quiet.
 
-**Fix.** Filter `include_object`, keep the table list next to the models so the
-two are updated together, and prefer hand-written revisions for schema changes.
-Use `render_as_batch=True` for SQLite, which cannot `ALTER TABLE` in place.
+Three further things make alembic unusable from the command line until fixed,
+all of which look like unrelated errors:
+
+- Nothing puts your backend directory on `sys.path`. Uvicorn supplies it through
+  the working directory; the CLI does not, so `import models` in `env.py` fails
+  with `ModuleNotFoundError`.
+- hop-core initialises its engine during application startup, which the CLI has
+  none of, so `get_engine()` raises `Database engine not initialized`.
+- If you do not `import hop_core.models` in `env.py`, hop-core's tables are absent
+  from the metadata your foreign keys point at, and autogenerate dies on
+  `NoReferencedTableError`.
+
+**Fix.** Derive the filter from your models module rather than hand-listing it,
+so a new table cannot be forgotten. Insert the backend directory on `sys.path`
+from `env.py`'s own `__file__`, initialise hop-core's engine when nothing else
+has, and import `hop_core.models` so foreign keys resolve. Use
+`render_as_batch=True` for SQLite, which cannot `ALTER TABLE` in place. Note that
+`alembic revision` also needs a `script.py.mako` template, so a project without
+one writes revisions by hand regardless.
 
 ---
 

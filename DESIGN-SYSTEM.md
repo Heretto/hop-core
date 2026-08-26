@@ -24,7 +24,7 @@ the tokens; custom interactions never have to fight the system.
 
 ```jsonc
 // package.json — the packaged tarball attached to a hop-core release
-"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.1/heretto-hop-ui-0.1.1.tgz"
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.2/heretto-hop-ui-0.1.2.tgz"
 ```
 
 Pin to a release tag so builds are reproducible. Asset names follow the tag:
