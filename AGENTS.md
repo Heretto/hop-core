@@ -1,12 +1,181 @@
-# Building on hop-core — integration checklist
+# Building on hop-core
 
-For agents (and people) wiring a new application to hop-core, or auditing one
-that already exists. Read it before writing integration code, and again before
-declaring a deployment working.
+For agents (and people) starting a new application on hop-core, or auditing one
+that already exists.
 
-Every item below comes from a real failure in a real hop-core app. Each one is
-written as a **check** you can run, the **why**, and the **fix**. Prefer running
-the check to assuming — most of these fail silently.
+**Starting fresh: work through "Start here" below, in order.** It is the whole
+wiring job — dependencies, settings, migrations, frontend — and following it
+avoids every failure catalogued later in this document.
+
+**Something already broken: skip to the numbered sections.** Each is a **check**
+you can run, the **why**, and the **fix**, and each comes from a real failure in
+a real hop-core app. Prefer running the check to assuming — most of these fail
+silently, which is why they earned a section.
+
+---
+
+## Start here — wiring a new application
+
+### Step 0 — Resolve the current release
+
+Everything else derives from this, so do it first.
+
+**Do not copy a version out of any document, including this one.** Look it up:
+
+```bash
+TAG=$(gh api repos/Heretto/hop-core/releases/latest --jq .tag_name)
+
+# or, with no gh and no auth — hop-core is public:
+TAG=$(curl -s https://api.github.com/repos/Heretto/hop-core/releases/latest \
+      | grep -m1 '"tag_name"' | sed 's/.*: *"\(.*\)".*/\1/')
+
+echo "$TAG"          # e.g. v0.1.2
+VERSION="${TAG#v}"   # e.g. 0.1.2
+```
+
+Both dependencies come from that one value:
+
+```bash
+# Python
+hop-core @ git+https://github.com/Heretto/hop-core.git@${TAG}
+
+# npm — the asset name is the tag without its leading v
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/${TAG}/heretto-hop-ui-${VERSION}.tgz"
+```
+
+That second URL is safe to construct rather than look up. The release workflow
+refuses to publish unless `ui/package.json`, `ui/package-lock.json`,
+`pyproject.toml` and `hop_core.__version__` all equal the tag without its `v`,
+so the asset name always follows the tag.
+
+Pin the tag. Do not track `main`, and never point either dependency at a path on
+disk — see §1 for why that keeps happening and what it breaks.
+
+### Step 1 — Backend
+
+```bash
+pip install "hop-core[doctor] @ git+https://github.com/Heretto/hop-core.git@${TAG}"
+```
+
+Subclass the settings, create the app, and register your routers:
+
+```python
+# settings.py
+from functools import lru_cache
+from hop_core.config import HopCoreSettings
+
+class AppSettings(HopCoreSettings):
+    my_setting: str = "default"
+    redis_url: str = ""        # override to optional if you do not use Redis
+
+@lru_cache
+def get_settings() -> AppSettings:
+    return AppSettings()
+```
+
+```python
+# main.py
+from hop_core.app_factory import create_hop_app
+from settings import get_settings
+
+app = create_hop_app(settings_factory=get_settings, extra_routers=[...])
+```
+
+Generate the settings that have no defaults — the app will not start without
+them (§3), and `ENCRYPTION_KEY` cannot be rotated later without orphaning every
+encrypted row:
+
+```bash
+for k in APP_SECRET_KEY JWT_SECRET_KEY ENCRYPTION_KEY; do
+  echo "$k=$(openssl rand -hex 32)"
+done >> .env
+echo "DATABASE_URL=sqlite:///./data/app.db" >> .env
+```
+
+If you use Alembic, write `migrations/env.py` in this shape from the start.
+Every line of it exists because its absence produces an error that looks like
+something else (§6):
+
+```python
+import sys
+from pathlib import Path
+from sqlalchemy import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # so `import models` works from the CLI
+
+from hop_core import db as hop_db
+from hop_core.db import Base
+import hop_core.models   # register hop-core's tables, or your foreign keys cannot resolve
+import models            # register yours
+
+OUR_TABLES = {                      # derive it; a hand-written list goes stale
+    m.class_.__tablename__
+    for m in Base.registry.mappers
+    if m.class_.__module__ == models.__name__
+} | {o.name for o in vars(models).values() if isinstance(o, Table)}
+
+def include_object(obj, name, type_, reflected, compare_to):
+    return name in OUR_TABLES if type_ == "table" else True
+
+def engine():                       # the CLI has no app startup to init it
+    try:
+        return hop_db.get_engine()
+    except RuntimeError:
+        from settings import get_settings
+        hop_db.init_engine(get_settings().database_url)
+        return hop_db.get_engine()
+```
+
+Configure with `include_object=include_object`, `compare_type=True`, and
+`render_as_batch=True` for SQLite.
+
+### Step 2 — Frontend
+
+Add the dependency from Step 0, then the design system, which is **one mixin**:
+
+```scss
+// src/styles.scss — the entire required global stylesheet
+@use '@heretto/hop-ui/theme' as hop;
+
+@include hop.hop-core-theme();
+```
+
+Load the fonts in `src/index.html` and put `class="mat-typography"` on `<body>` —
+[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) §1 has the exact tags. The package does
+not ship the fonts, and a missing Material Symbols renders every icon as its
+ligature name (§2).
+
+**If you will serve behind a Content-Security-Policy, set this now**, in
+`angular.json` on the production configuration:
+
+```jsonc
+"optimization": { "styles": { "inlineCritical": false } }
+```
+
+Otherwise your stylesheet downloads with HTTP 200 and is never applied. It is
+the least obvious failure in this document (§4).
+
+For components, services, guards and tokens, use
+[`DESIGN-SYSTEM.md`](DESIGN-SYSTEM.md) rather than reading `ui/src`.
+
+### Step 3 — Prove it works
+
+```bash
+hop-doctor                    # audits everything above; exits 1 on failures
+```
+
+Then check the running stack, not just the build (§8):
+
+```bash
+curl -s localhost:PORT/api/health                 # your app defines this; hop-core does not
+curl -s -o /dev/null -w '%{http_code}\n' "localhost:PORT/api/v1/YOUR_COLLECTION/"
+```
+
+`401` there is success: every application route requires authentication, and the
+trailing slash is required (§5). Read the browser console before concluding
+anything about missing styles or icons.
+
+---
 
 ## Run the checks automatically
 
@@ -55,7 +224,10 @@ a Docker build, because the path lies outside the build context. This is the
 single most common way a hop-core app becomes unbuildable, and it is usually
 invisible until someone else clones the repo.
 
-**Fix.** Consume both packages as versioned artifacts.
+**Fix.** Consume both packages as versioned artifacts. Get the tag from
+[Step 0](#step-0--resolve-the-current-release) rather than from the illustration
+below — `v0.1.2` here shows the shape, and will be out of date the moment
+another release lands.
 
 ```bash
 # requirements.txt — pin to a release tag, not a branch
@@ -214,7 +386,7 @@ protection for a rendering bug.
 **Check**
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" localhost:PORT/api/v1/<collection>/   # 401 when unauthenticated
+curl -s -o /dev/null -w "%{http_code}\n" "localhost:PORT/api/v1/YOUR_COLLECTION/"   # 401 when unauthenticated
 curl -s localhost:PORT/openapi.json | python -c "import json,sys; print(*sorted(json.load(sys.stdin)['paths']),sep='\n')"
 ```
 
@@ -298,8 +470,8 @@ like success:
 # The container is running the code you just wrote — compose does NOT rebuild
 # on source change, and a stale build context can report COPY as CACHED even
 # when files changed.
-docker compose exec <service> grep -n "<a string you just added>" /app/main.py
-docker compose build --no-cache <service>     # when the above disagrees
+docker compose exec SERVICE grep -n "a string you just added" /app/main.py
+docker compose build --no-cache SERVICE     # when the above disagrees
 
 # The stylesheet is actually applied (see §4)
 curl -s localhost:PORT/ | grep -o 'media="print"'
