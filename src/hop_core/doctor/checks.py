@@ -620,6 +620,39 @@ def _is_git_ignored(path: Path, root: Path) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# docs.agent_notes
+
+_AGENT_NOTES = ("AGENTS.md", "CLAUDE.md")
+
+
+def check_agent_notes(project: Project) -> list[Finding]:
+    """A hop-core app should carry agent-facing notes of its own.
+
+    hop-core's own AGENTS.md lives in a different repository, so nothing loads it
+    inside a consuming project. Without notes here, an agent opening this project
+    has no way to know it is a hop-core app, which release it pins, or that
+    hop-doctor exists.
+    """
+    cid = "docs.agent_notes"
+    found = [name for name in _AGENT_NOTES if (project.root / name).exists()]
+    if found:
+        return [
+            Finding(cid, Severity.PASS, f"agent notes present: {', '.join(found)}")
+        ]
+    return [
+        Finding(
+            cid,
+            Severity.WARN,
+            "no AGENTS.md or CLAUDE.md in the project root",
+            "Agent tools read these from the repository they are working in, and\n"
+            "hop-core's own guidance is in another repository, so it is not visible\n"
+            "here. If your notes live elsewhere, ignore this.",
+            "See Step 4 of hop-core's AGENTS.md for a short template.",
+        )
+    ]
+
+
+# ---------------------------------------------------------------------------
 
 REGISTRY = (
     check_python_dependency,
@@ -628,4 +661,5 @@ REGISTRY = (
     check_inline_critical,
     check_docker_build_context,
     check_required_settings,
+    check_agent_notes,
 )
