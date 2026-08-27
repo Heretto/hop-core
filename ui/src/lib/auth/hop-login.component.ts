@@ -328,7 +328,7 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
     this.isRegisterMode = !this.isRegisterMode;
     this.errorMessage = '';
     const orgNameControl = this.loginForm.get('organizationName');
-    if (this.isRegisterMode) {
+    if (this.isRegisterMode && !this.singleOrgMode) {
       orgNameControl?.setValidators([Validators.required]);
     } else {
       orgNameControl?.clearValidators();
