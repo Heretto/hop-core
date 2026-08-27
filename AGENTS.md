@@ -175,12 +175,67 @@ curl -s -o /dev/null -w '%{http_code}\n' "localhost:PORT/api/v1/YOUR_COLLECTION/
 trailing slash is required (§5). Read the browser console before concluding
 anything about missing styles or icons.
 
+### Step 4 — Leave notes for the next agent
+
+**Do not skip this.** This document lives in the hop-core repository, so nothing
+loads it inside the project you just built. Claude Code reads `CLAUDE.md` from
+the repository it is working in; `AGENTS.md` is the equivalent convention several
+other agent tools look for. Neither reaches across repositories. An agent opening
+your project later starts with no idea it is a hop-core app.
+
+You are the only one who knows what you just discovered, so write it down now.
+
+Create `AGENTS.md` in the project root, and make `CLAUDE.md` a symlink to it so
+one file serves every tool:
+
+```bash
+ln -s AGENTS.md CLAUDE.md      # or copy it, if symlinks are awkward in your CI
+```
+
+Keep it short and **link** to hop-core's documents rather than copying them —
+copied guidance drifts, and a stale copy is worse than a link:
+
+```markdown
+# PROJECT_NAME — agent notes
+
+Built on [hop-core](https://github.com/Heretto/hop-core), pinned at TAG.
+
+## Before changing anything
+
+Run `hop-doctor` (installed with hop-core). It audits this project's hop-core
+integration and exits non-zero on real problems.
+
+## hop-core references — a different repository, not loaded here
+
+- Integration rules, failure modes, upgrade steps: hop-core `AGENTS.md`
+- Design system, components, tokens, app skeleton: hop-core `DESIGN-SYSTEM.md`
+
+Read those instead of inferring from this project's code. Do not copy them here.
+
+## What is specific to this project
+
+- Settings: WHERE THE ENV FILE LIVES, and how the required secrets are supplied
+- Start the stack: THE COMMAND
+- ANYTHING YOU HAD TO WORK OUT THE HARD WAY — a non-obvious port, a proxy, a
+  CSP, whether the app can run more than one replica
+
+## Upgrading hop-core
+
+Resolve the current release (hop-core `AGENTS.md`, Step 0), bump the Python
+requirement and the `@heretto/hop-ui` asset URL **together**, regenerate the
+npm lock, rebuild, then re-run `hop-doctor`.
+```
+
+Record the pinned tag as a fact, not an instruction to use it forever: the next
+agent needs to know what this project is on today, and Step 0 tells it how to
+find what is current.
+
 ---
 
 ## Run the checks automatically
 
 Installing hop-core provides `hop-doctor`, which audits a project against
-sections 1–4 and 6 of this document:
+sections 1–4 and 6 of this document, and against Step 4:
 
 ```bash
 hop-doctor              # human-readable report; exits 1 on failures

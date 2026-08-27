@@ -10,6 +10,7 @@ import json
 
 from hop_core.doctor import Severity, discover, main, run_checks
 from hop_core.doctor.checks import (
+    check_agent_notes,
     check_docker_build_context,
     check_inline_critical,
     check_npm_dependency,
@@ -246,6 +247,25 @@ class TestRequiredSettings:
         assert any("template values" in f.summary for f in findings)
 
 
+class TestAgentNotes:
+    def test_missing_notes_warns(self, tmp_path):
+        f = only(check_agent_notes(discover(tmp_path)))
+        assert f.severity is Severity.WARN
+        assert "AGENTS.md or CLAUDE.md" in f.summary
+
+    def test_agents_md_passes(self, tmp_path):
+        write(tmp_path / "AGENTS.md", "# notes\n")
+        assert only(check_agent_notes(discover(tmp_path))).severity is Severity.PASS
+
+    def test_claude_md_passes(self, tmp_path):
+        write(tmp_path / "CLAUDE.md", "# notes\n")
+        assert only(check_agent_notes(discover(tmp_path))).severity is Severity.PASS
+
+    def test_never_fails(self, tmp_path):
+        # Notes may legitimately live elsewhere; this must not block anyone.
+        assert only(check_agent_notes(discover(tmp_path))).severity is not Severity.FAIL
+
+
 class TestDiscovery:
     def test_finds_nested_backend_and_frontend(self, tmp_path):
         write(tmp_path / "backend" / "requirements.txt", "fastapi\n")
@@ -291,4 +311,4 @@ class TestCli:
 
     def test_every_check_runs(self, tmp_path):
         ids = {f.check.split(".", 1)[0] for f in run_checks(discover(tmp_path))}
-        assert ids == {"deps", "frontend", "docker", "settings"}
+        assert ids == {"deps", "frontend", "docker", "settings", "docs"}
