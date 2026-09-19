@@ -156,6 +156,10 @@
   .bg-secondary { background-color: var(--bg-secondary) !important; }
   .bg-surface   { background-color: var(--surface-default) !important; }
 
+  // Applied to a mat-card or its wrapper to strip the default card padding.
+  .no-pad.mat-mdc-card,
+  .no-pad .mat-mdc-card { padding: 0 !important; }
+
   .loading-overlay {
     position: fixed;
     inset: 0;

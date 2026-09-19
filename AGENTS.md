@@ -540,3 +540,24 @@ curl -s localhost:PORT/api/health
 Read the browser console before concluding anything about missing styles, fonts,
 or icons. A CSP violation there names the blocked resource directly and will save
 you from diagnosing the wrong layer entirely.
+
+---
+
+## 9. Backticks inside Angular component CSS comments
+
+**Why.** Angular component styles are usually written as a template literal:
+
+```ts
+styles: [`
+  /* your CSS here */
+`]
+```
+
+A backtick inside a CSS comment — e.g. `` /* use `no-pad` here */ `` — terminates
+that template literal early. The compiler reports the breakage as a cascade of
+unrelated TypeScript errors on the lines that follow (typically six to ten errors
+with no obvious connection to the real cause).
+
+**Fix.** Never use backtick characters inside CSS comments in a `styles` template
+literal. Reword the comment, use single or double quotes, or escape the backtick
+as `` \` `` if you must keep it.
