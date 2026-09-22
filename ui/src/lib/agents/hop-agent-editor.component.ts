@@ -492,7 +492,7 @@ export class HopAgentEditorComponent implements OnInit {
 
   filePreview(index: number): string {
     const content = (this.contextFiles.at(index).get('content')?.value ?? '') as string;
-    const trimmed = content.trimStart();
+    const trimmed = content.replace(/^\s+/, '');
     return trimmed.length > 600 ? trimmed.slice(0, 600) + '…' : trimmed;
   }
 
