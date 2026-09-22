@@ -40,6 +40,8 @@ class AgentDefinition(BaseModel):
     """A resolved agent configuration ready to be run."""
 
     name: str
+    # Set from the persisted row; None for definitions constructed in tests.
+    agent_id: Optional[str] = None
     description: Optional[str] = None
     # None when the agent has no AI configuration, or its credential was
     # deleted. AgentRunner refuses to run such an agent.
@@ -69,6 +71,7 @@ class AgentDefinition(BaseModel):
 
         return cls(
             name=agent.name,
+            agent_id=str(agent.id),
             description=agent.description,
             ai_configuration=ai_configuration,
             context_files=[
@@ -117,8 +120,11 @@ class AgentDefinition(BaseModel):
             listed = "\n".join(f"- {url}" for url in self.permitted_urls)
             sections.append(
                 "## Permitted reference URLs\n\n"
-                "You may read the following URLs, and pages beneath them, for "
-                "additional reference. Do not read anything else.\n\n" + listed
+                "You have a `read_url` tool. Call it to fetch the text content of "
+                "any URL below whenever a task requires information from these "
+                "sources — documentation, specifications, or other reference "
+                "material. Pages beneath a listed URL are also permitted.\n\n"
+                + listed
             )
 
         feedback = (self.feedback_memory or "").strip()

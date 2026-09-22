@@ -26,8 +26,10 @@ from hop_core.agents.definition import AgentDefinition, AiConfiguration, Context
 from hop_core.agents.providers import (
     AiProviderError,
     AiProviderRegistry,
+    BUILTIN_TOOL_GENERATORS,
     CredentialAiService,
     GenerationResponse,
+    MAX_TOOL_ITERATIONS,
 )
 from hop_core.agents.runner import (
     AgentNotConfigured,
@@ -48,8 +50,10 @@ __all__ = [
     "AiConfiguration",
     "AiProviderError",
     "AiProviderRegistry",
+    "BUILTIN_TOOL_GENERATORS",
     "CredentialAiService",
     "GenerationResponse",
+    "MAX_TOOL_ITERATIONS",
     "ContextFile",
     "AgentNotConfigured",
     "AgentRequest",

@@ -7,7 +7,7 @@ belongs to the host app's jobs and workflows, which build an
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List, Optional
@@ -15,8 +15,11 @@ from uuid import UUID
 
 from hop_core.agents import configurations
 from hop_core.agents.definition import AgentDefinition
+from hop_core.agents.fetcher import FetchResult
 from hop_core.agents.providers import AiProviderError, CredentialAiService
 from hop_core.agents.runner import AgentNotConfigured, AgentRunner
+from hop_core.config import get_settings
+from hop_core.models.url_access_log import UrlAccessLog
 from hop_core.core.rate_limit import limiter
 from hop_core.core.security import decrypt_credentials
 from hop_core.db import get_db
@@ -320,6 +323,32 @@ async def chat_with_agent(
 
     definition = AgentDefinition.from_model(agent)
 
+    settings = get_settings()
+
+    async def _log_url_access(fetch_result: FetchResult) -> None:
+        from uuid import UUID as _UUID
+        try:
+            now = datetime.now(timezone.utc)
+            entry = UrlAccessLog(
+                organization_id=context.organization_id,
+                agent_id=_UUID(definition.agent_id) if definition.agent_id else None,
+                agent_name=definition.name,
+                url=fetch_result.url,
+                status=fetch_result.status,
+                blocked_reason=fetch_result.blocked_reason,
+                http_status=fetch_result.http_status,
+                content_type=fetch_result.content_type,
+                response_bytes=fetch_result.response_bytes,
+                duration_ms=fetch_result.duration_ms,
+                expires_at=now + timedelta(days=settings.url_access_log_retention_days),
+            )
+            db.add(entry)
+            db.query(UrlAccessLog).filter(UrlAccessLog.expires_at < now).delete()
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
     credential = agent.ai_configuration
     if credential is None:
         raise HTTPException(
@@ -357,6 +386,7 @@ async def chat_with_agent(
             chat_request.messages,
             max_tokens=chat_request.max_tokens,
             temperature=chat_request.temperature,
+            url_logger=_log_url_access,
         )
     except AgentNotConfigured as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

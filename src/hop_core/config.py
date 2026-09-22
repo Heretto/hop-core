@@ -74,6 +74,9 @@ class HopCoreSettings(BaseSettings):
     # Server
     api_prefix: str = "/api/v1"
 
+    # URL access log retention
+    url_access_log_retention_days: int = 90
+
     class Config:
         env_file = ".env"
         case_sensitive = False

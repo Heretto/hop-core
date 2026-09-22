@@ -7,13 +7,12 @@ the injected AI service, and returning what came back.
 """
 
 import logging
-from typing import Optional
+from typing import Awaitable, Callable, List, Optional
 
 from pydantic import BaseModel, Field
 
-from typing import List
-
 from hop_core.agents.definition import AgentDefinition
+from hop_core.agents.fetcher import FetchResult, fetch_url
 from hop_core.ai import ChatMessage, GenerationRequest, SupportsGenerate
 
 logger = logging.getLogger(__name__)
@@ -79,12 +78,38 @@ class AgentRunner:
             )
         return configuration
 
+    def _make_tool_executor(
+        self,
+        definition: AgentDefinition,
+        url_logger: Optional[Callable] = None,
+    ) -> Callable[[str, dict], Awaitable[str]]:
+        permitted_urls = list(definition.permitted_urls)
+
+        async def execute(tool_name: str, args: dict) -> str:
+            if tool_name != "read_url":
+                return f"Unknown tool: {tool_name!r}"
+            url = (args.get("url") or "").strip()
+            if not url:
+                return "No URL provided."
+            fetch_result = await fetch_url(url, permitted_urls)
+            if url_logger is not None:
+                try:
+                    await url_logger(fetch_result)
+                except Exception:
+                    logger.warning("Failed to log URL access for %s", url, exc_info=True)
+            if not fetch_result.ok:
+                return f"Could not fetch {url}: {fetch_result.blocked_reason}"
+            return fetch_result.content or f"No readable content at {url}."
+
+        return execute
+
     async def chat(
         self,
         definition: AgentDefinition,
         messages: List[ChatMessage],
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
+        url_logger: Optional[Callable[["FetchResult"], Awaitable[None]]] = None,
     ) -> AgentRunResult:
         """Hold a conversation with the agent, for testing how it behaves.
 
@@ -110,7 +135,11 @@ class AgentRunner:
             temperature=temperature,
         )
 
-        result = await self.ai_service.generate(generation)
+        if definition.permitted_urls and hasattr(self.ai_service, "generate_with_tools"):
+            executor = self._make_tool_executor(definition, url_logger)
+            result = await self.ai_service.generate_with_tools(generation, executor)
+        else:
+            result = await self.ai_service.generate(generation)
 
         return AgentRunResult(
             output=result.content,
@@ -125,6 +154,7 @@ class AgentRunner:
         self,
         definition: AgentDefinition,
         request: AgentRequest,
+        url_logger: Optional[Callable[["FetchResult"], Awaitable[None]]] = None,
     ) -> AgentRunResult:
         """Run ``definition`` once and return its output.
 
@@ -149,7 +179,12 @@ class AgentRunner:
             configuration.provider,
             configuration.model,
         )
-        result = await self.ai_service.generate(generation)
+
+        if definition.permitted_urls and hasattr(self.ai_service, "generate_with_tools"):
+            executor = self._make_tool_executor(definition, url_logger)
+            result = await self.ai_service.generate_with_tools(generation, executor)
+        else:
+            result = await self.ai_service.generate(generation)
 
         return AgentRunResult(
             output=result.content,

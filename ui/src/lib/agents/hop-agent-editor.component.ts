@@ -52,15 +52,6 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
               </p>
             </div>
           </div>
-          <div class="header-actions">
-            <span class="error-text" *ngIf="errorMessage">{{ errorMessage }}</span>
-            <button mat-button type="button" (click)="cancel()">Cancel</button>
-            <button mat-raised-button color="primary" type="button"
-                    [disabled]="form.invalid || saving" (click)="save()">
-              <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
-              <span *ngIf="!saving">{{ isNew ? 'Create Agent' : 'Save Changes' }}</span>
-            </button>
-          </div>
         </div>
 
         <mat-tab-group>
@@ -110,6 +101,16 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
                     Inactive agents stay configured but are not offered to jobs and
                     workflows.
                   </span>
+                </div>
+
+                <div class="tab-save-row">
+                  <span class="error-text" *ngIf="configError">{{ configError }}</span>
+                  <button mat-button type="button" (click)="cancel()">Cancel</button>
+                  <button mat-raised-button color="primary" type="button"
+                          [disabled]="form.invalid || saving" (click)="save()">
+                    <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+                    <span *ngIf="!saving">{{ isNew ? 'Create Agent' : 'Save Changes' }}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -257,6 +258,15 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
                           class="markdown-input"
                           placeholder="### 2026-09-19&#10;&#10;Keep entries under two sentences."></textarea>
               </mat-form-field>
+              <div class="tab-save-row">
+                <span class="error-text" *ngIf="memoryError">{{ memoryError }}</span>
+                <button mat-button type="button" (click)="cancel()">Cancel</button>
+                <button mat-raised-button color="primary" type="button"
+                        [disabled]="saving || isNew" (click)="saveMemory()">
+                  <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+                  <span *ngIf="!saving">Save Changes</span>
+                </button>
+              </div>
             </div>
           </mat-tab>
 
@@ -288,7 +298,6 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
     .heading h1 { margin: 0 0 4px; }
     .heading button { margin-top: 4px; }
     .subtitle { margin: 0; max-width: 60ch; color: var(--text-secondary); }
-    .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
     .tab-body { padding: 24px 4px 8px; }
     /* Prose and single inputs stay readable; markdown gets the full width. */
@@ -364,11 +373,14 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
     .empty-state mat-icon { font-size: 40px; height: 40px; width: 40px; }
     .empty-state p { margin: 8px 0 0; }
 
+    .tab-save-row {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 12px; margin-top: 20px;
+    }
     .error-text { color: var(--color-error-text); }
 
     @media (max-width: 768px) {
       .editor-header { flex-direction: column; }
-      .header-actions { width: 100%; justify-content: flex-end; }
     }
   `],
 })
@@ -385,7 +397,8 @@ export class HopAgentEditorComponent implements OnInit {
 
   loading = false;
   saving = false;
-  errorMessage = '';
+  configError = '';
+  memoryError = '';
 
   urlControl = this.fb.control('');
 
@@ -431,7 +444,8 @@ export class HopAgentEditorComponent implements OnInit {
   private reset(): void {
     this.agent = null;
     this.permittedUrls = [];
-    this.errorMessage = '';
+    this.configError = '';
+    this.memoryError = '';
     this.editingFileIndex = null;
     this.urlControl.reset('');
     this.contextFiles.clear();
@@ -574,12 +588,12 @@ export class HopAgentEditorComponent implements OnInit {
   private performSave(onSuccess?: () => void): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.errorMessage = 'Check the highlighted fields.';
+      this.configError = 'Check the highlighted fields.';
       return;
     }
 
     this.saving = true;
-    this.errorMessage = '';
+    this.configError = '';
     const payload = this.buildPayload();
     const wasNew = this.isNew;
 
@@ -603,7 +617,7 @@ export class HopAgentEditorComponent implements OnInit {
       },
       error: error => {
         this.saving = false;
-        this.errorMessage = error?.error?.detail || 'Failed to save agent.';
+        this.configError = error?.error?.detail || 'Failed to save agent.';
       },
     });
   }
@@ -611,6 +625,26 @@ export class HopAgentEditorComponent implements OnInit {
   save(): void { this.performSave(); }
 
   saveContextFile(): void { this.performSave(() => { this.editingFileIndex = null; }); }
+
+  saveMemory(): void {
+    if (this.saving || !this.agentId) return;
+    this.saving = true;
+    this.memoryError = '';
+    this.agentService.updateAgent(this.agentId, {
+      feedback_memory: this.form.get('feedback_memory')?.value ?? '',
+    }).subscribe({
+      next: (agent) => {
+        this.saving = false;
+        this.agent = agent;
+        this.form.get('feedback_memory')?.markAsPristine();
+        this.snackBar.open('Memory saved', 'Close', { duration: 3000 });
+      },
+      error: error => {
+        this.saving = false;
+        this.memoryError = error?.error?.detail || 'Failed to save memory.';
+      },
+    });
+  }
 
   /** Back to the agent list, wherever the app mounted it. */
   cancel(): void {
