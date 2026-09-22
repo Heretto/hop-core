@@ -29,6 +29,19 @@ from hop_core.schemas.credential import (
     CredentialUpdate,
     CredentialResponse,
 )
+from hop_core.schemas.agent import (
+    AiConfigurationSummary,
+    AgentContextFileCreate,
+    AgentContextFileResponse,
+    AgentCreate,
+    AgentUpdate,
+    AgentSummaryResponse,
+    AgentResponse,
+    AgentFeedbackUpdate,
+    AgentFeedbackAppend,
+    AgentChatRequest,
+    AgentChatResponse,
+)
 
 __all__ = [
     "UserBase", "UserCreate", "UserUpdate", "UserResponse",
@@ -40,4 +53,8 @@ __all__ = [
     "OrganizationInvitationCreate", "OrganizationInvitationResponse",
     "OrganizationRoleEnum",
     "CredentialCreate", "CredentialUpdate", "CredentialResponse",
+    "AiConfigurationSummary", "AgentContextFileCreate", "AgentContextFileResponse",
+    "AgentCreate", "AgentUpdate", "AgentSummaryResponse", "AgentResponse",
+    "AgentFeedbackUpdate", "AgentFeedbackAppend",
+    "AgentChatRequest", "AgentChatResponse",
 ]

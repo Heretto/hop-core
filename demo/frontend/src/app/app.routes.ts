@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { hopAuthGuard, hopAdminGuard } from '@heretto/hop-ui';
+import { hopAuthGuard, hopAdminGuard, HOP_AGENT_ROUTES } from '@heretto/hop-ui';
 
 export const routes: Routes = [
   // Unauthenticated routes — rendered without the main layout shell
@@ -48,6 +48,15 @@ export const routes: Routes = [
         path: 'widgets',
         loadComponent: () =>
           import('./widgets/widgets.component').then(m => m.WidgetsComponent),
+      },
+      {
+        // List plus the create/edit pages; the editor navigates back relatively.
+        path: 'agents',
+        children: HOP_AGENT_ROUTES,
+      },
+      {
+        path: 'credentials',
+        loadComponent: () => import('@heretto/hop-ui').then(m => m.HopCredentialsComponent),
       },
       {
         path: 'account',

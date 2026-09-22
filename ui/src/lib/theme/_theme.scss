@@ -59,4 +59,24 @@
     gap: $spacing-3;
     margin-top: $spacing-5;
   }
+
+  // Page container: fills the content area rather than sitting centred in a
+  // fixed column, with a gutter on the right so nothing runs to the edge.
+  // The layout already supplies padding on the other three sides.
+  //
+  // Override the gutter per page or globally with --hop-page-gutter-right.
+  .hop-page {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding-right: var(--hop-page-gutter-right, #{$spacing-8});
+  }
+
+  @media (max-width: $breakpoint-md) {
+    // On a phone the layout's own padding is the whole gutter; anything more
+    // eats the usable width.
+    .hop-page {
+      padding-right: 0;
+    }
+  }
 }

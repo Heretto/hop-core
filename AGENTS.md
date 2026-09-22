@@ -470,7 +470,8 @@ grep -n "include_object\|OUR_TABLES\|target_metadata" migrations/env.py
 
 **Why.** Your models and hop-core's share one declarative `Base`, so
 `target_metadata` covers `users`, `organizations`, `organization_members`,
-`organization_invitations` and `credentials` as well as your own. Unfiltered,
+`organization_invitations`, `credentials`, `agents` and `agent_context_files`
+as well as your own. Unfiltered,
 `alembic revision --autogenerate` writes migrations against hop-core's schema —
 measured on a real app, thirteen spurious `modify_type` operations, because
 hop-core's UUID columns reflect out of SQLite as `NUMERIC`. Those migrations
