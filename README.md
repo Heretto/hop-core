@@ -79,14 +79,14 @@ docker compose up --build
 ### 1. Install
 
 ```bash
-pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.2"
+pip install "hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.4"
 ```
 
 Pin to a release tag rather than tracking `main`, so builds are reproducible.
 In `requirements.txt`:
 
 ```
-hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.2
+hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.4
 ```
 
 Never install from a local path (`file:///…`) in a committed dependency file —
@@ -167,7 +167,7 @@ Install the packaged library from a hop-core release:
 
 ```jsonc
 // package.json
-"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.2/heretto-hop-ui-0.1.2.tgz"
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.4/heretto-hop-ui-0.1.4.tgz"
 ```
 
 npm cannot install this package from a git URL (it lives in `ui/`), and the

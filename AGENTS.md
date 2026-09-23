@@ -286,12 +286,12 @@ another release lands.
 
 ```bash
 # requirements.txt — pin to a release tag, not a branch
-hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.2
+hop-core @ git+https://github.com/Heretto/hop-core.git@v0.1.4
 ```
 
 ```jsonc
 // package.json — the packaged tarball attached to the release
-"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.2/heretto-hop-ui-0.1.2.tgz"
+"@heretto/hop-ui": "https://github.com/Heretto/hop-core/releases/download/v0.1.4/heretto-hop-ui-0.1.4.tgz"
 ```
 
 Pin to a tag rather than `main` so builds are reproducible. The Python install
