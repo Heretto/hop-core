@@ -17,7 +17,7 @@ from hop_core.core.csrf import CSRFMiddleware
 from hop_core.core.oauth import init_oauth
 from hop_core.core.logging import setup_logging
 from hop_core.middleware import SecurityHeadersMiddleware
-from hop_core.api.routes import auth, sso, account, organizations, invitations, credentials, admin, superadmin
+from hop_core.api.routes import auth, sso, account, organizations, invitations, credentials, agents, admin, superadmin
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ def create_hop_app(
     include_admin: bool = True,
     include_superadmin: bool = True,
     include_credentials_router: bool = True,
+    include_agents_router: bool = True,
 ) -> FastAPI:
     """Create a FastAPI application with hop-core platform routes.
 
@@ -45,6 +46,8 @@ def create_hop_app(
         include_credentials_router: Include hop-core's generic credentials router.
             Set to False when the host app provides its own credentials router via
             extra_routers with type-specific sub-routes (e.g. /credentials/jira).
+        include_agents_router: Include hop-core's agent configuration router
+            (/agents), which backs the HopAgentsComponent management UI.
     """
     configure(settings_factory)
     settings = get_settings()
@@ -102,6 +105,8 @@ def create_hop_app(
     app.include_router(invitations.router, prefix=prefix, tags=["invitations"])
     if include_credentials_router:
         app.include_router(credentials.router, prefix=prefix, tags=["credentials"])
+    if include_agents_router:
+        app.include_router(agents.router, prefix=prefix, tags=["agents"])
     app.include_router(account.router, prefix=prefix, tags=["account"])
     app.include_router(organizations.router, prefix=prefix, tags=["organizations"])
 

@@ -322,6 +322,7 @@ are 24px (18px in dense contexts) — the theme handles metrics and clipping.
 | `.hop-status-message` (+ `.success`/`.error`) | Inline status banner |
 | `.hop-form-section` | Section spacing + heading treatment for forms |
 | `.hop-form-actions` | Right-aligned action row (flex, gap) |
+| `.hop-page` | Page container: fills the content area with a right gutter (see below) |
 | `.loading-overlay` | Fixed full-viewport scrim with centered content |
 | `.skip-link` | Accessibility skip-to-content link |
 | `.hop-status-chip` (+ `-pending/-running/-completed/-failed`) | Lifecycle-state chips (see below) |
@@ -330,6 +331,28 @@ are 24px (18px in dense contexts) — the theme handles metrics and clipping.
 | `.hop-code-panel` | Dark VS Code-style code viewer, theme-invariant (see below) |
 | `.hop-query-block` / `.hop-query-block-label` | Labeled monospace query display (see below) |
 | `.hop-shimmer` | Animated running-state sweep (see below) |
+
+### Page container
+
+Put `.hop-page` on a page's outermost element. It fills the content area
+rather than sitting centred in a fixed column, and adds a 32px gutter on the
+right so nothing runs to the viewport edge — the layout already supplies
+padding on the other three sides, and the gutter is dropped below 768px where
+that padding is the whole budget.
+
+```html
+<div class="hop-page">…</div>
+```
+
+Adjust the gutter with `--hop-page-gutter-right`, per page or globally:
+
+```scss
+:root { --hop-page-gutter-right: 48px; }
+```
+
+Full width is for the page *frame*, not for every line in it: keep prose and
+single inputs in a readable column (`max-width: 720px`, or `60–80ch` for body
+copy) and let tables, markdown editors and code panels use the space.
 
 ### Card variants
 
@@ -432,6 +455,12 @@ Everything importable from `@heretto/hop-ui`:
 | `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet | `appTitle: string`, `logoSrc?: string` (brand image, 36px tall, far left; with `appTitle` set the app name renders beside it after a thin divider — set `appTitle=""` for logo-only; without `logoSrc` the brand falls back to icon + name), `navItems: NavItem[]` |
 | `HopAccountComponent` | `hop-account` | Profile editor (email, password, delete) | — |
 | `HopAdminComponent` | `hop-admin` | Org admin: members + invitations tabs | — |
+| `HopCredentialsComponent` | `hop-credentials` | Credential management: a tab per registered type or group, forms built from each type's field spec, per-row connection testing | — |
+| `HopCredentialEditorDialogComponent` | `hop-credential-editor-dialog` | Schema-driven add/edit credential form (opened by HopCredentials) | `MatDialog` data: `HopCredentialEditorDialogData` |
+| `HopCredentialTestDialogComponent` | `hop-credential-test-dialog` | Connection-test result: status, timing, request line, response body in a code panel | `MatDialog` data: `HopCredentialTestDialogData` |
+| `HopAgentsComponent` | `hop-agents` | Agent list: the whole card opens the agent; an overflow menu holds duplicate, activate, delete | — |
+| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, reference URLs, memory, and a Test tab. Routed: `new` or `:agentId` | via route params |
+| `HopAgentChatComponent` | `hop-agent-chat` | Chat panel for testing an agent; shows the system prompt that produced each reply | `agentId: string \| null`, `agentName: string`, `hasConfiguration: boolean`, `dirty: boolean` |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
 | `HopConfirmDialogComponent` | `hop-confirm-dialog` | Reusable confirm dialog | `MatDialog` data: `HopConfirmDialogData` |
 | `HopInviteSuccessDialogComponent` | — | Post-invite success dialog | `MatDialog` data: `HopInviteSuccessDialogData` |
@@ -451,6 +480,27 @@ interface AccountUpdate { email?: string; current_password?: string; new_passwor
 interface UserOrganizationInfo { id: string; name: string; slug: string; role: string; }
 interface LoginResponse { access_token: string; refresh_token: string; token_type: string; expires_at?: number; organizations?: UserOrganizationInfo[]; }
 interface SSOProviders { google: boolean; microsoft: boolean; sso_only: boolean; single_org_mode: boolean; google_client_id?: string; }
+type CredentialFieldType = 'text' | 'password' | 'email' | 'url' | 'select' | 'textarea';
+interface CredentialFieldOption { value: string; label: string; }
+interface CredentialField { name: string; label: string; type: CredentialFieldType; required: boolean; secret: boolean; summary: boolean; placeholder: string; help: string; options: CredentialFieldOption[]; }
+interface CredentialTypeSpec { type: string; label: string; group?: string | null; group_label?: string | null; icon: string; description: string; is_ai_configuration: boolean; testable: boolean; fields: CredentialField[]; }
+interface CredentialTestExchange { method: string; url: string; status_code: number | null; response_body: string; body_truncated: boolean; duration_ms: number | null; }
+interface CredentialTestResult { success: boolean; message: string; details: Record<string, any>; exchange: CredentialTestExchange | null; tested_at: string; }
+interface HopCredentialTestDialogData { credentialName: string; typeLabel: string; result: CredentialTestResult | null; }
+interface Credential { id: string; type: string; name: string; created_at: string; updated_at?: string; values: Record<string, any>; secrets_set: string[]; }
+interface CredentialCreate { type: string; name: string; credentials: Record<string, any>; }
+interface CredentialUpdate { name?: string; credentials?: Record<string, any>; }
+interface HopCredentialEditorDialogData { credential: Credential | null; types: CredentialTypeSpec[]; groupLabel: string; }
+interface HopCredentialEditorResult { type: string; name: string; credentials: Record<string, any>; }
+interface AiConfiguration { id: string; name: string; provider: string; provider_label: string; model: string; }
+interface ChatMessage { role: 'user' | 'assistant'; content: string; }
+interface AgentChatRequest { messages: ChatMessage[]; max_tokens?: number | null; temperature?: number | null; }
+interface AgentChatResponse { message: ChatMessage; provider: string; model: string; ai_configuration_name: string; system_prompt: string; }
+interface AgentContextFile { id?: string; name: string; content: string; position?: number; }
+interface AgentSummary { id: string; name: string; description?: string | null; ai_configuration_id?: string | null; ai_configuration?: AiConfiguration | null; permitted_urls: string[]; context_file_count: number; has_feedback_memory: boolean; is_active: boolean; created_at?: string; updated_at?: string; created_by?: string | null; }
+interface Agent extends AgentSummary { context_files: AgentContextFile[]; feedback_memory: string; }
+interface AgentCreate { name: string; description?: string | null; ai_configuration_id?: string | null; context_files?: AgentContextFile[]; permitted_urls?: string[]; feedback_memory?: string; is_active?: boolean; }
+type AgentUpdate = Partial<AgentCreate>;
 ```
 
 ### Services (root-provided, `inject()` them)
@@ -495,6 +545,27 @@ HopAccountService {
   isAdmin(): boolean;
   getCurrentEmail(): string | null;
 }
+
+HopAgentService {
+  listAgents(): Observable<AgentSummary[]>;             // summaries — no context bodies
+  getAgent(agentId): Observable<Agent>;                 // full agent
+  createAgent(agent: AgentCreate): Observable<Agent>;
+  updateAgent(agentId, changes: AgentUpdate): Observable<Agent>;   // context_files/permitted_urls replace the list
+  deleteAgent(agentId): Observable<{message}>;
+  replaceMemory(agentId, feedbackMemory): Observable<Agent>;
+  appendFeedback(agentId, feedback, heading?): Observable<Agent>;
+  listAiConfigurations(): Observable<AiConfiguration[]>;  // the editor's select options
+  chat(agentId, request: AgentChatRequest): Observable<AgentChatResponse>;  // stores nothing
+}
+
+HopCredentialService {
+  listTypes(): Observable<CredentialTypeSpec[]>;        // what the app registered; drives the form
+  listCredentials(): Observable<Credential[]>;          // never includes secrets
+  createCredential(credential: CredentialCreate): Observable<Credential>;
+  updateCredential(credentialId, changes: CredentialUpdate): Observable<Credential>;  // omit a secret to keep it
+  deleteCredential(credentialId): Observable<{message}>;
+  testCredential(credentialId): Observable<CredentialTestResult>;  // a failed connection is a 200
+}
 ```
 
 ### Guards, interceptor, token, routes
@@ -507,6 +578,7 @@ HopAccountService {
 | `hopAuthInterceptor` | `HttpInterceptorFn` | Attaches Bearer token, auto-refreshes on 401 |
 | `HOP_API_URL` | `InjectionToken<string>` | API base URL, defaults `/api/v1` — provide to override |
 | `HOP_ROUTES` | `Routes` | Prebuilt: `login`, `forgot-password`, `reset-password`, `auth/sso/complete`, `invite/:token`, `account` (auth-guarded), `admin` (auth+admin-guarded) |
+| `HOP_AGENT_ROUTES` | `Routes` | Agent pages — `''` (list), `new`, `:agentId`. Mount as `children` of any path; componentless, so they render in the existing outlet |
 
 ---
 
@@ -595,6 +667,8 @@ showcase: the demo's **Widget Library** page
   (`1px solid var(--border-default)`) for separation.
 - Use `.hop-card-accent` for emphasized/selected cards.
 - Put page content on `--bg-secondary`; put grouped content in cards.
+- Wrap a page in `.hop-page` rather than giving it its own `max-width` +
+  `margin: 0 auto`.
 
 **Don't**
 - Hard-code hex colors, rgba grays, or `white`/`black` in component styles.

@@ -72,6 +72,9 @@ class Organization(Base):
     invitations = relationship(
         "OrganizationInvitation", back_populates="organization", cascade="all, delete-orphan"
     )
+    agents = relationship(
+        "Agent", back_populates="organization", cascade="all, delete-orphan"
+    )
 
 
 class OrganizationInvitation(Base):
