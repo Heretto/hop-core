@@ -20,6 +20,9 @@ export type {
   Agent, AgentSummary, AgentCreate, AgentUpdate, AgentContextFile, AiConfiguration,
   ChatMessage, AgentChatRequest, AgentChatResponse,
 } from './lib/agents/hop-agent.service';
+export { HopDitaService } from './lib/dita/hop-dita.service';
+export type { DitaExclusions, DitaRenderRequest, RenderedDitaTopic } from './lib/dita/hop-dita.service';
+export { sanitizeDitaHtml } from './lib/dita/hop-dita-sanitize';
 
 // Auth
 export { hopAuthInterceptor } from './lib/auth/hop-auth.interceptor';
@@ -51,6 +54,8 @@ export type {
 export { HopAgentsComponent } from './lib/agents/hop-agents.component';
 export { HopAgentEditorComponent } from './lib/agents/hop-agent-editor.component';
 export { HopAgentChatComponent } from './lib/agents/hop-agent-chat.component';
+export { HopDitaContentComponent } from './lib/dita/hop-dita-content.component';
+export type { HopDitaLinkEvent } from './lib/dita/hop-dita-content.component';
 export { HopConfirmDialogComponent } from './lib/shared/hop-confirm-dialog.component';
 export { HopInviteSuccessDialogComponent } from './lib/shared/hop-invite-success-dialog.component';
 export type { HopConfirmDialogData } from './lib/shared/hop-confirm-dialog.component';

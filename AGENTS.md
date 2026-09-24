@@ -562,3 +562,33 @@ with no obvious connection to the real cause).
 **Fix.** Never use backtick characters inside CSS comments in a `styles` template
 literal. Reword the comment, use single or double quotes, or escape the backtick
 as `` \` `` if you must keep it.
+
+---
+
+## 10. Showing rendered DITA
+
+**Check**
+
+```bash
+grep -rn 'innerHTML' src/ | grep -i dita          # should be empty — use <hop-dita-content>
+curl -s localhost:PORT/openapi.json | grep -c '/dita/render'   # 1 if the frontend sends raw DITA
+```
+
+**Why.** `hop_core.dita.DitaRenderer` output depends on `id` attributes:
+in-topic cross-references (`#topic__elem`), footnote callouts and each topic's
+`aria-labelledby`. Angular's `[innerHTML]` sanitizer strips `id`, so those links
+silently go nowhere — and a bare `#fragment` link resolves against
+`<base href>`, navigating the app to its root. The content styles also only
+apply under `.hop-dita`.
+
+`<hop-dita-content [dita]>` posts to `/dita/render`, which is **not mounted by
+default** — without it every render is a 404 shown as "This topic could not be
+rendered."
+
+**Fix.** Render with `<hop-dita-content [html]="topic.html">` (it sanitizes with
+a DITA-aware allowlist and handles fragment links). If the browser sends raw
+DITA, pass `include_dita_router=True` to `create_hop_app()` and install the
+`hop-core[dita]` extra. Render server-side instead when content references
+other files or keys: only the backend can supply `DitaRenderer(loader=...,
+keys=keys_from_map(...))`, and the route reports unresolved references in
+`warnings` rather than failing.

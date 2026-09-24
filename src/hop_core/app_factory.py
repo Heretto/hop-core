@@ -32,6 +32,7 @@ def create_hop_app(
     include_superadmin: bool = True,
     include_credentials_router: bool = True,
     include_agents_router: bool = True,
+    include_dita_router: bool = False,
 ) -> FastAPI:
     """Create a FastAPI application with hop-core platform routes.
 
@@ -48,6 +49,8 @@ def create_hop_app(
             extra_routers with type-specific sub-routes (e.g. /credentials/jira).
         include_agents_router: Include hop-core's agent configuration router
             (/agents), which backs the HopAgentsComponent management UI.
+        include_dita_router: Include ``POST /dita/render``, which backs
+            ``<hop-dita-content [dita]>``. Requires the ``dita`` extra (lxml).
     """
     configure(settings_factory)
     settings = get_settings()
@@ -107,6 +110,10 @@ def create_hop_app(
         app.include_router(credentials.router, prefix=prefix, tags=["credentials"])
     if include_agents_router:
         app.include_router(agents.router, prefix=prefix, tags=["agents"])
+    if include_dita_router:
+        # Imported here: the route needs lxml, which only the ``dita`` extra installs.
+        from hop_core.api.routes import dita
+        app.include_router(dita.router, prefix=prefix, tags=["dita"])
     app.include_router(account.router, prefix=prefix, tags=["account"])
     app.include_router(organizations.router, prefix=prefix, tags=["organizations"])
 
