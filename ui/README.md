@@ -13,8 +13,11 @@ It is a *token + theme* layer, not a bespoke component library. Angular Material
 stays the component substrate — the design system themes it globally so
 consistency comes for free and custom interactions never have to fight it.
 
-Requires **Angular 19 / Angular Material 19** (the theme uses the M3 `mat.theme()`
-API and the `--mat-sys-*` system-token bridge).
+Requires **Angular 22 / Angular Material 22** and Node ≥ 22.22.3 or ≥ 24.15 (the theme
+uses the M3 `mat.theme()` API, the `--mat-sys-*` system-token bridge and the
+`--mat-*` component tokens Material 20+ reads). The components expect Zone.js
+change detection: they declare `ChangeDetectionStrategy.Eager` and are not yet
+zoneless-safe.
 
 ## Using it
 
@@ -110,6 +113,6 @@ not a rewrite: the tokens are already in place.
 ## Building the library
 
 ```bash
-# from ui/ (requires ng-packagr + Angular 19 available)
+# from ui/ (requires ng-packagr + Angular 22 available)
 npm run build   # → dist/hop-ui
 ```

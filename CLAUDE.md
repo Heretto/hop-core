@@ -1,7 +1,7 @@
 # hop-core
 
 Platform library for building multi-tenant AI-powered apps: a Python/FastAPI
-backend package (`src/hop_core/`) + an Angular 19 UI library
+backend package (`src/hop_core/`) + an Angular 22 UI library
 (`ui/` → `@heretto/hop-ui`) + a runnable example app (`demo/`).
 
 ## Read this first when integrating a consuming app
