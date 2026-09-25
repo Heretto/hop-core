@@ -54,6 +54,8 @@ export type {
 export { HopAgentsComponent } from './lib/agents/hop-agents.component';
 export { HopAgentEditorComponent } from './lib/agents/hop-agent-editor.component';
 export { HopAgentChatComponent } from './lib/agents/hop-agent-chat.component';
+export { HopDataTableComponent, HopTableCellDirective } from './lib/table/hop-data-table.component';
+export type { HopTableColumn, HopTableValue } from './lib/table/hop-data-table.component';
 export { HopDitaContentComponent } from './lib/dita/hop-dita-content.component';
 export type { HopDitaLinkEvent } from './lib/dita/hop-dita-content.component';
 export { HopConfirmDialogComponent } from './lib/shared/hop-confirm-dialog.component';
