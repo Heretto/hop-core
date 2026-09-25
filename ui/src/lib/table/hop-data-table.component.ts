@@ -1,6 +1,6 @@
 import {
   AfterContentInit, AfterViewInit, Component, ContentChildren, Directive, Input,
-  OnChanges, QueryList, SimpleChanges, TemplateRef, ViewChild, inject,
+  OnChanges, QueryList, SimpleChanges, TemplateRef, ViewChild, inject, ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -40,6 +40,7 @@ export class HopTableCellDirective {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'hop-data-table',
   standalone: true,
   imports: [

@@ -52,16 +52,16 @@
 
   // Modern button geometry: 8px rects instead of M3 pills.
   html {
-    --mdc-filled-button-container-shape: 8px;
-    --mdc-outlined-button-container-shape: 8px;
-    --mdc-text-button-container-shape: 8px;
-    --mdc-protected-button-container-shape: 8px;
+    --mat-button-filled-container-shape: 8px;
+    --mat-button-outlined-container-shape: 8px;
+    --mat-button-text-container-shape: 8px;
+    --mat-button-protected-container-shape: 8px;
 
     // Compact, consistent form-field height.
     --mat-form-field-container-height: 44px;
     --mat-form-field-container-vertical-padding: 10px;
-    --mdc-outlined-text-field-container-shape: 8px;
-    --mdc-filled-text-field-container-shape: 8px;
+    --mat-form-field-outlined-container-shape: 8px;
+    --mat-form-field-filled-container-shape: 8px;
   }
 
   // Icons: Material Symbols Rounded everywhere — light, unfilled line style.
@@ -135,7 +135,7 @@
   }
 
   .mat-mdc-outlined-button {
-    --mdc-outlined-button-outline-color: var(--border-strong);
+    --mat-button-outlined-outline-color: var(--border-strong);
     color: var(--text-primary);
     transition: background-color 120ms ease, border-color 120ms ease;
 
@@ -153,10 +153,10 @@
   // buttons as "elevated" — surface fill with a primary-colored label).
   .mat-mdc-raised-button.mat-primary,
   .mat-mdc-unelevated-button.mat-primary {
-    --mdc-protected-button-container-color: var(--color-primary);
-    --mdc-protected-button-label-text-color: #fff;
-    --mdc-filled-button-container-color: var(--color-primary);
-    --mdc-filled-button-label-text-color: #fff;
+    --mat-button-protected-container-color: var(--color-primary);
+    --mat-button-protected-label-text-color: #fff;
+    --mat-button-filled-container-color: var(--color-primary);
+    --mat-button-filled-label-text-color: #fff;
     background-color: var(--color-primary);
     color: #fff;
 
@@ -418,7 +418,7 @@
 
     // Generous tap targets toward the 44px guideline.
     .mat-mdc-icon-button.mat-mdc-button-base {
-      --mdc-icon-button-state-layer-size: 44px;
+      --mat-icon-button-state-layer-size: 44px;
       width: 44px;
       height: 44px;
       padding: 10px;

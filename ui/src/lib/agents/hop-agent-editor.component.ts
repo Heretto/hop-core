@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators,
@@ -22,6 +22,7 @@ import {
 import { HopAgentChatComponent } from './hop-agent-chat.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'hop-agent-editor',
   standalone: true,
   imports: [

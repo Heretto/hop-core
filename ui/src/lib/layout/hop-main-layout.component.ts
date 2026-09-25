@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -16,6 +16,7 @@ import { HOP_LOGO_SRC } from '../tokens/hop-logo-src.token';
 import { HERETTO_OPEN_PROJECTS_LOGO } from './heretto-open-projects-logo';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'hop-main-layout',
   standalone: true,
   imports: [
