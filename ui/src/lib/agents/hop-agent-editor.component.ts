@@ -241,6 +241,16 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
                     </button>
                   </li>
                 </ul>
+
+                <div class="tab-save-row">
+                  <span class="error-text" *ngIf="configError">{{ configError }}</span>
+                  <button mat-button type="button" (click)="cancel()">Cancel</button>
+                  <button mat-raised-button color="primary" type="button"
+                          [disabled]="form.invalid || saving" (click)="save()">
+                    <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+                    <span *ngIf="!saving">{{ isNew ? 'Create Agent' : 'Save Changes' }}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </mat-tab>
