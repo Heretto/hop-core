@@ -286,7 +286,7 @@ The mixin overrides all Material components. Defaults you get for free:
 | Cards (`mat-card`) | `--card-bg` fill, 1px `--card-border`, 12px radius, **no shadow** |
 | Form fields | Outlined only, 44px tall, 8px radius; 12px top margin (floating-label room), 10px between consecutive fields — **do not add your own field margins** |
 | Tabs | **Left-aligned at natural width** (no stretch), teal underline on active, quiet inactive labels |
-| Tables (`mat-table`) | Transparent bg, uppercase quiet headers (`--text-tertiary`), hairline row dividers, row hover overlay |
+| Tables (`mat-table`) | Transparent bg, uppercase quiet headers (`--text-tertiary`), hairline row dividers, row hover overlay; the actively sorted header reads `--text-primary`. For a data table, prefer `hop-data-table` (section 8) over hand-written `mat-table` markup |
 | Menus / selects / dialogs | `--bg-elevated` + hairline border; dialog 14px radius |
 | Checkbox / slide-toggle / radio | Navy checked state, `--border-strong` unchecked |
 | Chips | `--button-secondary-bg` fill, fully rounded |
@@ -463,10 +463,37 @@ Everything importable from `@heretto/hop-ui`:
 | `HopAgentChatComponent` | `hop-agent-chat` | Chat panel for testing an agent; shows the system prompt that produced each reply | `agentId: string \| null`, `agentName: string`, `hasConfiguration: boolean`, `dirty: boolean` |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
 | `HopDitaContentComponent` | `hop-dita-content` | Rendered DITA topic (DITA-OT HTML5 markup) styled by the theme. Sanitizes with a DITA-aware allowlist (Angular's strips the `id`s xrefs and footnotes need); `#fragment` links scroll in place, other links emit `linkClick` first — call `event.preventDefault()` to route them yourself | `html: string` (from `hop_core.dita.DitaRenderer`) **or** `dita: string` (raw XML, rendered via `POST /dita/render` — needs `include_dita_router=True`), `exclude?: DitaExclusions`, `headingOffset = 0`; outputs `rendered: RenderedDitaTopic`, `linkClick: HopDitaLinkEvent` |
+| `HopDataTableComponent` | `hop-data-table` | Standard data table: header-click sorting on every column (opt out per column), optional text filter across columns with a match count and a no-matches row, horizontal scroll on narrow screens. Custom cells via `<ng-template hopCell="key" let-row>` (`HopTableCellDirective` — import it alongside). Put it in a `mat-card` for the standard framed look | `columns: HopTableColumn[]`, `data: T[]`, `filterable = false`, `filterPlaceholder = 'Filter'`, `sortActive: string \| null = null` (initial sort column), `sortDirection: 'asc' \| 'desc' = 'asc'`, `emptyText = 'No data'` |
 | `HopConfirmDialogComponent` | `hop-confirm-dialog` | Reusable confirm dialog | `MatDialog` data: `HopConfirmDialogData` |
 | `HopInviteSuccessDialogComponent` | — | Post-invite success dialog | `MatDialog` data: `HopInviteSuccessDialogData` |
 
 All components are **standalone** (import directly, no NgModule).
+
+**Data table.** Sorting is on by default: text sorts case-insensitively, and
+numbers and `Date`s sort by value, so give date columns a `Date` (or a `value`
+accessor returning one) rather than a formatted string. The filter is off
+until you set the flag. It matches the lower-cased text of every column that
+isn't `filterable: false`:
+
+```html
+<mat-card>
+  <hop-data-table [columns]="columns" [data]="members" [filterable]="true"
+                  filterPlaceholder="Filter members" sortActive="name">
+    <ng-template hopCell="role" let-m><mat-chip>{{ m.role }}</mat-chip></ng-template>
+    <ng-template hopCell="joined" let-m>{{ m.joined | date: 'mediumDate' }}</ng-template>
+  </hop-data-table>
+</mat-card>
+```
+
+```typescript
+columns: HopTableColumn<Member>[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'role', label: 'Role' },
+  { key: 'joined', label: 'Joined', filterable: false },
+  { key: 'actions', label: '', sortable: false, filterable: false },
+];
+```
 
 ### Types
 
@@ -506,6 +533,8 @@ type DitaExclusions = Record<string, string[]>;   // { audience: ['expert'] }
 interface DitaRenderRequest { content: string; exclude?: DitaExclusions; show_draft?: boolean; heading_offset?: number; }
 interface RenderedDitaTopic { html: string; title: string; shortdesc: string | null; topic_id: string | null; topic_type: string; lang: string | null; warnings: string[]; }
 interface HopDitaLinkEvent { href: string; external: boolean; event: MouseEvent; }
+type HopTableValue = string | number | boolean | Date | null | undefined;
+interface HopTableColumn<T = any> { key: string; label: string; sortable?: boolean /* default true */; filterable?: boolean /* default true */; value?: (row: T) => HopTableValue /* default row[key]; drives display (without a hopCell), sorting and filtering */; align?: 'start' | 'end'; }
 ```
 
 ### Services (root-provided, `inject()` them)

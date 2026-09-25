@@ -24,7 +24,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
-  HopConfirmDialogComponent, HopConfirmDialogData, HopDitaContentComponent,
+  HopConfirmDialogComponent, HopConfirmDialogData, HopDataTableComponent, HopDitaContentComponent,
+  HopTableCellDirective, HopTableColumn,
 } from '@heretto/hop-ui';
 
 interface Swatch {
@@ -67,6 +68,7 @@ interface MemberRow {
   email: string;
   role: string;
   status: string;
+  joined: Date;
 }
 
 @Component({
@@ -97,6 +99,8 @@ interface MemberRow {
     MatDialogModule,
     MatSnackBarModule,
     HopDitaContentComponent,
+    HopDataTableComponent,
+    HopTableCellDirective,
   ],
   template: `
     <div class="widgets">
@@ -478,32 +482,23 @@ interface MemberRow {
       <!-- TABLE ----------------------------------------------------------- -->
       <section>
         <h2>Data table</h2>
-        <mat-card class="demo-card no-pad">
-          <table mat-table [dataSource]="members" class="full-width">
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef>Name</th>
-              <td mat-cell *matCellDef="let m">{{ m.name }}</td>
-            </ng-container>
-            <ng-container matColumnDef="email">
-              <th mat-header-cell *matHeaderCellDef>Email</th>
-              <td mat-cell *matCellDef="let m">{{ m.email }}</td>
-            </ng-container>
-            <ng-container matColumnDef="role">
-              <th mat-header-cell *matHeaderCellDef>Role</th>
-              <td mat-cell *matCellDef="let m">
-                <mat-chip highlighted color="primary">{{ m.role }}</mat-chip>
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let m">
-                <span class="dot" [class.active]="m.status === 'Active'"></span>
-                {{ m.status }}
-              </td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="memberColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: memberColumns"></tr>
-          </table>
+        <p class="section-note">
+          <code>&lt;hop-data-table&gt;</code> sorts on header click out of the box. Add
+          <code>[filterable]="true"</code> for a text filter across the columns;
+          <code>&lt;ng-template hopCell="key" let-row&gt;</code> customises a column's cells.
+        </p>
+        <mat-card class="demo-card table-card">
+          <hop-data-table [columns]="memberColumns" [data]="members" [filterable]="true"
+                          filterPlaceholder="Filter members" sortActive="name">
+            <ng-template hopCell="role" let-m>
+              <mat-chip highlighted color="primary">{{ m.role }}</mat-chip>
+            </ng-template>
+            <ng-template hopCell="status" let-m>
+              <span class="dot" [class.active]="m.status === 'Active'"></span>
+              {{ m.status }}
+            </ng-template>
+            <ng-template hopCell="joined" let-m>{{ m.joined | date: 'mediumDate' }}</ng-template>
+          </hop-data-table>
         </mat-card>
       </section>
 
@@ -693,6 +688,7 @@ interface MemberRow {
     .tab-body { padding: 20px 4px; color: var(--text-secondary); }
 
     .full-width { width: 100%; }
+    .table-card { padding-top: 4px; }
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--text-disabled); }
     .dot.active { background: var(--color-success); }
 
@@ -760,11 +756,20 @@ export class WidgetsComponent {
     },
   ];
 
-  memberColumns = ['name', 'email', 'role', 'status'];
+  memberColumns: HopTableColumn<MemberRow>[] = [
+    { key: 'name', label: 'Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'role', label: 'Role' },
+    { key: 'status', label: 'Status' },
+    { key: 'joined', label: 'Joined', filterable: false },
+  ];
   members: MemberRow[] = [
-    { name: 'Ada Lovelace', email: 'ada@example.com', role: 'Owner', status: 'Active' },
-    { name: 'Alan Turing', email: 'alan@example.com', role: 'Admin', status: 'Active' },
-    { name: 'Grace Hopper', email: 'grace@example.com', role: 'Member', status: 'Invited' },
+    { name: 'Ada Lovelace', email: 'ada@example.com', role: 'Owner', status: 'Active', joined: new Date(2024, 0, 12) },
+    { name: 'Alan Turing', email: 'alan@example.com', role: 'Admin', status: 'Active', joined: new Date(2024, 2, 3) },
+    { name: 'Grace Hopper', email: 'grace@example.com', role: 'Member', status: 'Invited', joined: new Date(2025, 5, 21) },
+    { name: 'Katherine Johnson', email: 'katherine@example.com', role: 'Admin', status: 'Active', joined: new Date(2024, 8, 9) },
+    { name: 'Edsger Dijkstra', email: 'edsger@example.com', role: 'Member', status: 'Active', joined: new Date(2025, 1, 14) },
+    { name: 'Barbara Liskov', email: 'barbara@example.com', role: 'Member', status: 'Invited', joined: new Date(2025, 9, 2) },
   ];
 
   removeChip(): void {
