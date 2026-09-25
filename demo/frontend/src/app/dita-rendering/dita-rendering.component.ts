@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -174,6 +174,7 @@ const SAMPLES: Record<string, string> = { task: TASK, concept: CONCEPT, referenc
       </mat-card>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .back-link { margin-bottom: 16px; }
     h1 { margin-bottom: 8px; }
