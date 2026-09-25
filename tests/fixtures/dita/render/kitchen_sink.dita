@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="configure" xml:lang="en-US">
+  <title>Configuring <tm trademark="Acme" tmtype="reg">Acme</tm> Server</title>
+  <shortdesc>Set up the server before first use.</shortdesc>
+  <prolog><metadata><keywords><keyword>hidden</keyword></keywords></metadata></prolog>
+  <taskbody>
+    <prereq id="pre">You need <keyword keyref="product"/> installed<fn>Version 2 or later.</fn>.</prereq>
+    <context>
+      <p>Open <menucascade><uicontrol>File</uicontrol> <uicontrol>Settings</uicontrol></menucascade>
+      and see <xref href="#configure/ports"/> or <xref href="https://example.com" scope="external">the site</xref>.</p>
+      <p audience="expert">Experts only.</p>
+      <note type="tip">Use <codeph>--verbose</codeph> for detail.</note>
+      <note type="other" othertype="Heads up">Custom note.</note>
+    </context>
+    <steps>
+      <step importance="optional"><cmd>Edit <filepath>/etc/acme.conf</filepath>.</cmd>
+        <info><codeblock outputclass="language-ini">[server]
+port = 8080</codeblock></info>
+        <substeps>
+          <substep><cmd>Set the port.</cmd></substep>
+          <substep><cmd>Save.</cmd></substep>
+        </substeps>
+      </step>
+      <stepsection>Then restart.</stepsection>
+      <step><cmd>Restart with <userinput>acme restart</userinput>.</cmd>
+        <choicetable>
+          <chrow><choption>Soft</choption><chdesc>Keeps sessions.</chdesc></chrow>
+        </choicetable>
+      </step>
+    </steps>
+    <result>
+      <fig id="arch" frame="all"><title>Architecture</title><desc>Overview</desc>
+        <image href="images/arch.png" placement="break" align="center" width="2in"><alt>Diagram</alt></image>
+      </fig>
+      <table id="ports" frame="all">
+        <title>Ports</title>
+        <tgroup cols="3">
+          <colspec colname="c1" colwidth="1*"/><colspec colname="c2" colwidth="2*"/><colspec colname="c3" colwidth="1*"/>
+          <thead><row><entry>Name</entry><entry>Port</entry><entry>Proto</entry></row></thead>
+          <tbody>
+            <row><entry morerows="1">HTTP</entry><entry namest="c2" nameend="c3">8080 / TCP</entry></row>
+            <row><entry>8443</entry><entry>TCP</entry></row>
+          </tbody>
+        </tgroup>
+      </table>
+      <lines>line one
+  indented two</lines>
+      <p>Link <xref href="javascript:alert(1)">bad</xref> and <xref href="other.dita#other/sec">other</xref>
+        <xmlelement>server</xmlelement> <draft-comment>hide me</draft-comment></p>
+      <hazardstatement type="danger"><messagepanel><typeofhazard>High voltage</typeofhazard><howtoavoid>Unplug first.</howtoavoid></messagepanel></hazardstatement>
+      <p conref="#configure/reuse"/>
+      <p id="reuse">Reused paragraph with <b>bold</b>.</p>
+    </result>
+  </taskbody>
+  <related-links>
+    <link href="install.dita" type="task"><linktext>Installing</linktext></link>
+    <link href="https://acme.example" scope="external" format="html"><linktext>Acme site</linktext></link>
+  </related-links>
+  <concept id="nested"><title>Nested concept</title><conbody><p>Nested body.</p></conbody></concept>
+</task>

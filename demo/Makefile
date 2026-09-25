@@ -7,8 +7,8 @@ setup: .env backend-deps frontend-deps  ## Generate .env and install all depende
 .env:
 	./scripts/setup.sh
 
-backend-deps:  ## Install Python dependencies (hop-core + uvicorn)
-	cd backend && pip install -e ../../ && pip install -r requirements.txt
+backend-deps:  ## Install Python dependencies (hop-core[dita] + uvicorn)
+	cd backend && pip install -e "../../[dita]" && pip install -r requirements.txt
 
 frontend-deps:  ## Install Node dependencies
 	cd frontend && npm install

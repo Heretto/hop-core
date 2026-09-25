@@ -35,6 +35,11 @@ export const routes: Routes = [
           import('./dashboard/dashboard.component').then(m => m.DashboardComponent),
       },
       {
+        path: 'docs/dita-rendering',
+        loadComponent: () =>
+          import('./dita-rendering/dita-rendering.component').then(m => m.DitaRenderingComponent),
+      },
+      {
         path: 'docs/dita',
         loadComponent: () =>
           import('./dita-docs/dita-docs.component').then(m => m.DitaDocsComponent),

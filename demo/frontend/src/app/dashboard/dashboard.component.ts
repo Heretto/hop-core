@@ -52,6 +52,23 @@ import { MatIconModule } from '@angular/material/icon';
 
         <mat-card class="feature-card">
           <mat-card-header>
+            <mat-icon mat-card-avatar>article</mat-icon>
+            <mat-card-title>DITA Rendering</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>
+              DITA topics to HTML the way DITA-OT renders them — notes, steps,
+              tables, figures, conrefs, keyrefs and filtering — displayed with
+              the design system by one component.
+            </p>
+          </mat-card-content>
+          <mat-card-actions>
+            <a mat-button color="primary" routerLink="/docs/dita-rendering">Try It</a>
+          </mat-card-actions>
+        </mat-card>
+
+        <mat-card class="feature-card">
+          <mat-card-header>
             <mat-icon mat-card-avatar>admin_panel_settings</mat-icon>
             <mat-card-title>Organization Admin</mat-card-title>
           </mat-card-header>

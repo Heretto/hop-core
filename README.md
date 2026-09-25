@@ -20,7 +20,7 @@ A batteries-included platform library for building AI-powered content creation a
 | **Password reset** | Token-based reset flow with SMTP email delivery |
 | **Security** | CSRF double-submit cookie protection, rate limiting via slowapi, SSRF-safe URL validation, security response headers |
 | **Admin** | Development-only admin endpoints for inspecting app state |
-| **DITA** | `hop_core.dita` (install the `hop-core[dita]` extra) — DITA 1.3 validation with bundled OASIS grammars (`DitaValidator`: DTD validation via `xmllint`, structural fallback, deterministic auto-fixes) and AI-driven correction (`DitaCorrectionService`: validate→correct loop with any injected AI service). For full DTD validation install `xmllint` (`apt-get install libxml2-utils` / `brew install libxml2`); without it the validator falls back to structural checks. |
+| **DITA** | `hop_core.dita` (install the `hop-core[dita]` extra) — DITA 1.3 validation with bundled OASIS grammars (`DitaValidator`: DTD validation via `xmllint`, structural fallback, deterministic auto-fixes) and AI-driven correction (`DitaCorrectionService`: validate→correct loop with any injected AI service). For full DTD validation install `xmllint` (`apt-get install libxml2-utils` / `brew install libxml2`); without it the validator falls back to structural checks. Also DITA → HTML rendering modeled on DITA-OT's HTML5 transform (`DitaRenderer`: every topic type, conref/keyref/filtering hooks, output safe to insert into a page), with an opt-in `POST /dita/render` route (`create_hop_app(include_dita_router=True)`). |
 
 ### Frontend (`@heretto/hop-ui` Angular library)
 
@@ -35,6 +35,7 @@ A batteries-included platform library for building AI-powered content creation a
 | `HopAdminComponent` | Organization member management with invite dialog |
 | `HopCredentialsComponent` | Credential management — a tab per registered type, forms built from each type's declared fields, one-click connection testing |
 | `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, reference URLs, memory, and a chat panel for testing the agent |
+| `HopDitaContentComponent` + `HopDitaService` | `<hop-dita-content>` shows rendered DITA — `[html]` from your backend's `DitaRenderer`, or `[dita]` rendered via `POST /dita/render` — styled by the theme, with in-topic links scrolling in place and other links reported through `(linkClick)` |
 | `HopMainLayoutComponent` | App shell with sidebar navigation, header, and router outlet |
 | `HopAuthService` | Reactive auth state, token refresh, login/logout |
 | `hopAuthGuard` | Route guard — redirects unauthenticated users to login |

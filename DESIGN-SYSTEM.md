@@ -462,6 +462,7 @@ Everything importable from `@heretto/hop-ui`:
 | `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, reference URLs, memory, and a Test tab. Routed: `new` or `:agentId` | via route params |
 | `HopAgentChatComponent` | `hop-agent-chat` | Chat panel for testing an agent; shows the system prompt that produced each reply | `agentId: string \| null`, `agentName: string`, `hasConfiguration: boolean`, `dirty: boolean` |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
+| `HopDitaContentComponent` | `hop-dita-content` | Rendered DITA topic (DITA-OT HTML5 markup) styled by the theme. Sanitizes with a DITA-aware allowlist (Angular's strips the `id`s xrefs and footnotes need); `#fragment` links scroll in place, other links emit `linkClick` first — call `event.preventDefault()` to route them yourself | `html: string` (from `hop_core.dita.DitaRenderer`) **or** `dita: string` (raw XML, rendered via `POST /dita/render` — needs `include_dita_router=True`), `exclude?: DitaExclusions`, `headingOffset = 0`; outputs `rendered: RenderedDitaTopic`, `linkClick: HopDitaLinkEvent` |
 | `HopConfirmDialogComponent` | `hop-confirm-dialog` | Reusable confirm dialog | `MatDialog` data: `HopConfirmDialogData` |
 | `HopInviteSuccessDialogComponent` | — | Post-invite success dialog | `MatDialog` data: `HopInviteSuccessDialogData` |
 
@@ -501,6 +502,10 @@ interface AgentSummary { id: string; name: string; description?: string | null; 
 interface Agent extends AgentSummary { context_files: AgentContextFile[]; feedback_memory: string; }
 interface AgentCreate { name: string; description?: string | null; ai_configuration_id?: string | null; context_files?: AgentContextFile[]; permitted_urls?: string[]; feedback_memory?: string; is_active?: boolean; }
 type AgentUpdate = Partial<AgentCreate>;
+type DitaExclusions = Record<string, string[]>;   // { audience: ['expert'] }
+interface DitaRenderRequest { content: string; exclude?: DitaExclusions; show_draft?: boolean; heading_offset?: number; }
+interface RenderedDitaTopic { html: string; title: string; shortdesc: string | null; topic_id: string | null; topic_type: string; lang: string | null; warnings: string[]; }
+interface HopDitaLinkEvent { href: string; external: boolean; event: MouseEvent; }
 ```
 
 ### Services (root-provided, `inject()` them)
@@ -557,6 +562,11 @@ HopAgentService {
   listAiConfigurations(): Observable<AiConfiguration[]>;  // the editor's select options
   chat(agentId, request: AgentChatRequest): Observable<AgentChatResponse>;  // stores nothing
 }
+
+HopDitaService {
+  render(content, options?: Omit<DitaRenderRequest, 'content'>): Observable<RenderedDitaTopic>;  // POST /dita/render
+}
+// Also exported: sanitizeDitaHtml(html, doc?) → DocumentFragment — the component's sanitizer
 
 HopCredentialService {
   listTypes(): Observable<CredentialTypeSpec[]>;        // what the app registered; drives the form
@@ -712,6 +722,7 @@ token-consuming styles now and they will theme automatically then.
 | `ui/src/lib/theme/_tokens.scss` | Semantic CSS custom properties (light + inert dark) + `--hop-*` aliases |
 | `ui/src/lib/theme/_base.scss` | Reset, typography, scrollbars, focus, utility classes |
 | `ui/src/lib/theme/_material.scss` | `mat.theme()` M3 setup, `--mat-sys-*` bridge, Material overrides, icon font swap, mobile guardrails |
+| `ui/src/lib/theme/_dita.scss` | Rendered-DITA content styles (DITA-OT class names under `.hop-dita`), emitted by the mixin |
 | `ui/src/lib/theme/_theme.scss` | `hop-core-theme()` entry mixin + hop utility classes + card variants |
 | `ui/src/lib/theme/index.scss` | Public forward (`@use ... as hop`) |
 | `ui/src/public-api.ts` | Library export barrel (section 8 mirrors it) |

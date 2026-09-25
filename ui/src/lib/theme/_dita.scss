@@ -1,0 +1,176 @@
+// =============================================================================
+// Rendered DITA — the HTML that hop_core.dita.DitaRenderer emits (DITA-OT
+// HTML5 class names), scoped to `.hop-dita`. <hop-dita-content> adds that
+// class; an app showing rendered HTML some other way can add it itself.
+// Tokens only: the base typography, link and code styles apply underneath.
+// Emitted globally (not as component styles) so it stays out of each app's
+// per-component style budget.
+// =============================================================================
+
+@mixin hop-dita {
+  .hop-dita { color: var(--text-primary); line-height: 1.6; overflow-wrap: break-word; }
+  .hop-dita p, .hop-dita .p, .hop-dita li, .hop-dita dd { color: var(--text-secondary); }
+  .hop-dita .p, .hop-dita p { margin: 0 0 12px; }
+
+  /* Headings: topic titles step down from the page scale; section titles stay compact. */
+  .hop-dita .topictitle1 { font-size: 1.875rem; margin-bottom: 12px; }
+  .hop-dita .topictitle2 { font-size: 1.5rem; margin: 32px 0 12px; }
+  .hop-dita .topictitle3, .hop-dita .topictitle4,
+  .hop-dita .topictitle5, .hop-dita .topictitle6 { font-size: 1.25rem; margin: 24px 0 8px; }
+  .hop-dita .sectiontitle { font-size: 1.125rem; margin: 24px 0 8px; }
+  .hop-dita .tasklabel .sectiontitle { font-size: 1rem; margin: 20px 0 8px; }
+  .hop-dita .shortdesc { font-size: 1.0625rem; color: var(--text-secondary); margin-bottom: 20px; }
+  .hop-dita .abstract { margin-bottom: 20px; }
+  .hop-dita .section, .hop-dita .example { margin: 0 0 16px; }
+  .hop-dita article.nested1, .hop-dita article.nested2, .hop-dita article.nested3 {
+    border-top: 1px solid var(--border-default); margin-top: 32px;
+  }
+
+  /* Lists */
+  .hop-dita ul, .hop-dita ol { margin: 0 0 12px; padding-left: 24px; }
+  .hop-dita li { margin: 4px 0; }
+  .hop-dita li > .p:last-child, .hop-dita li > p:last-child { margin-bottom: 0; }
+  .hop-dita ul.simple { list-style: none; padding-left: 0; }
+  .hop-dita .compact > li { margin: 0; }
+  .hop-dita .liexpand, .hop-dita .stepexpand, .hop-dita .substepexpand { margin: 12px 0; }
+  .hop-dita ol.steps > li::marker { color: var(--text-primary); font-weight: 600; }
+  .hop-dita .stepsection { margin: 16px 0 8px; font-weight: 500; color: var(--text-primary); }
+  .hop-dita .cmd { color: var(--text-primary); }
+  .hop-dita .itemgroup.info, .hop-dita .stepxmp, .hop-dita .stepresult, .hop-dita .tutorialinfo {
+    margin: 6px 0; color: var(--text-secondary);
+  }
+  .hop-dita dl { margin: 0 0 12px; }
+  .hop-dita dt { font-weight: 600; color: var(--text-primary); margin-top: 8px; }
+  .hop-dita dd { margin: 2px 0 8px 24px; }
+
+  /* Notes — the status callout pattern, keyed on DITA note types. */
+  .hop-dita .note {
+    margin: 16px 0; padding: 12px 16px; border-radius: 8px;
+    background: var(--color-info-bg); border: 1px solid var(--border-default);
+    border-left: 3px solid var(--color-info);
+  }
+  .hop-dita .note__title { font-weight: 600; color: var(--text-primary); }
+  .hop-dita .note__body { display: inline; }
+  .hop-dita .note__body > :first-child { display: inline; }
+  .hop-dita .note__body > :last-child { margin-bottom: 0; }
+  .hop-dita .note.important, .hop-dita .note.attention, .hop-dita .note.remember,
+  .hop-dita .note.restriction, .hop-dita .note.notice, .hop-dita .note.caution {
+    background: var(--color-warning-bg); border-color: var(--color-warning-border);
+    border-left-color: var(--color-warning);
+  }
+  .hop-dita .note.warning, .hop-dita .note.danger, .hop-dita .note.trouble {
+    background: var(--color-error-bg); border-color: var(--color-error-border);
+    border-left-color: var(--color-error);
+  }
+  .hop-dita .note.caution .note__title, .hop-dita .note.warning .note__title,
+  .hop-dita .note.danger .note__title { color: var(--color-error-text); }
+  .hop-dita .spectitle { margin: 16px 0 4px; }
+
+  /* Hazard statements (ANSI Z535 / ISO 3864 style header band) */
+  .hop-dita table.hazardstatement {
+    width: 100%; margin: 16px 0; border-collapse: collapse; border: 1px solid var(--border-strong);
+  }
+  .hop-dita table.hazardstatement th {
+    padding: 8px 12px; text-transform: uppercase; letter-spacing: 0.04em; text-align: center;
+    background: var(--color-warning-bg); color: var(--color-warning-text);
+  }
+  .hop-dita table.hazardstatement th.hazardstatement--danger,
+  .hop-dita table.hazardstatement th.hazardstatement--warning {
+    background: var(--color-error); color: var(--text-inverse);
+  }
+  .hop-dita table.hazardstatement th.hazardstatement--notice {
+    background: var(--color-info-bg); color: var(--color-info-text);
+  }
+  .hop-dita table.hazardstatement td { padding: 12px; vertical-align: top; border: none; }
+  .hop-dita .messagepanel > div + div { margin-top: 6px; }
+  .hop-dita .typeofhazard { font-weight: 600; color: var(--text-primary); }
+
+  /* Code and phrases */
+  .hop-dita pre { margin: 0 0 16px; line-height: 1.5; }
+  .hop-dita .screen { background: var(--surface-sunken); border: 1px solid var(--border-default); }
+  .hop-dita .filepath, .hop-dita .cmdname, .hop-dita .tt, .hop-dita .apiname,
+  .hop-dita .parmname, .hop-dita .option { font-family: var(--font-mono); font-size: 0.9em; }
+  .hop-dita kbd.userinput {
+    font-family: var(--font-mono); font-size: 0.85em; padding: 1px 6px; border-radius: 4px;
+    border: 1px solid var(--border-strong); background: var(--surface-sunken);
+  }
+  .hop-dita samp { font-family: var(--font-mono); font-size: 0.9em; }
+  .hop-dita .uicontrol, .hop-dita .wintitle { font-weight: 600; color: var(--text-primary); }
+  .hop-dita .menucascade abbr { text-decoration: none; color: var(--text-tertiary); }
+  .hop-dita .varname, .hop-dita .var { font-style: italic; }
+  .hop-dita .markupname { color: var(--color-tertiary-text); }
+  .hop-dita .shortcut { text-decoration: underline; }
+  .hop-dita .line-through { text-decoration: line-through; }
+  .hop-dita .overline { text-decoration: overline; }
+  .hop-dita dfn.term { font-style: italic; }
+  .hop-dita .lines { white-space: normal; }
+  .hop-dita blockquote.lq {
+    margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--color-accent);
+    color: var(--text-secondary);
+  }
+  .hop-dita blockquote.lq > div { text-align: right; font-size: 0.9em; }
+  .hop-dita .syntaxdiagram { margin: 16px 0; font-family: var(--font-mono); font-size: 0.9em; }
+  .hop-dita .syntaxdiagram kbd { font-family: inherit; }
+
+  /* Figures and images */
+  .hop-dita figure { margin: 16px 0; }
+  .hop-dita figure.figborder { border: 1px solid var(--border-default); border-radius: 8px; padding: 12px; }
+  .hop-dita figure.figtop, .hop-dita figure.figtopbot { border-top: 1px solid var(--border-default); padding-top: 12px; }
+  .hop-dita figure.figbottom, .hop-dita figure.figtopbot { border-bottom: 1px solid var(--border-default); padding-bottom: 12px; }
+  .hop-dita figure.figsides { border-left: 1px solid var(--border-default); border-right: 1px solid var(--border-default); padding: 0 12px; }
+  .hop-dita figcaption { margin-bottom: 8px; font-size: 0.9rem; color: var(--text-secondary); }
+  .hop-dita .fig--title-label, .hop-dita .table--title-label { font-weight: 600; color: var(--text-primary); }
+  .hop-dita .figdesc, .hop-dita .tabledesc { color: var(--text-tertiary); }
+  .hop-dita img { max-width: 100%; height: auto; vertical-align: middle; }
+  .hop-dita .imageleft { text-align: left; }
+  .hop-dita .imagecenter { text-align: center; }
+  .hop-dita .imageright { text-align: right; }
+
+  /* Tables */
+  .hop-dita table.table, .hop-dita table.simpletable {
+    width: 100%; margin: 16px 0; border-collapse: collapse; font-size: 0.95em;
+  }
+  .hop-dita table.table caption, .hop-dita table.simpletable caption {
+    caption-side: top; text-align: left; padding-bottom: 8px; font-size: 0.9rem; color: var(--text-secondary);
+  }
+  .hop-dita table.table caption .tabledesc { display: block; }
+  .hop-dita table.table th, .hop-dita table.table td,
+  .hop-dita table.simpletable th, .hop-dita table.simpletable td {
+    padding: 8px 12px; text-align: left; vertical-align: top;
+    border-bottom: 1px solid var(--border-default); color: var(--text-secondary);
+  }
+  .hop-dita table.table thead th, .hop-dita table.simpletable thead th {
+    color: var(--text-primary); font-weight: 600; background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .hop-dita table.table tbody th, .hop-dita table.simpletable tbody th { color: var(--text-primary); font-weight: 600; }
+  .hop-dita table.frame-all, .hop-dita table.simpletableborder { border: 1px solid var(--border-default); }
+  .hop-dita table.frame-all th, .hop-dita table.frame-all td { border: 1px solid var(--border-default); }
+  .hop-dita table.frame-topbot { border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); }
+  .hop-dita .align-center { text-align: center !important; }
+  .hop-dita .align-right { text-align: right !important; }
+  .hop-dita .align-justify { text-align: justify !important; }
+  .hop-dita .valign-middle { vertical-align: middle !important; }
+  .hop-dita .valign-bottom { vertical-align: bottom !important; }
+  .hop-dita .entry.rotate { writing-mode: vertical-rl; }
+  .hop-dita .entry > p:last-child, .hop-dita .stentry > p:last-child { margin-bottom: 0; }
+  .hop-dita table > colgroup + thead th { white-space: nowrap; }
+
+  /* Related links and footnotes */
+  .hop-dita .related-links { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border-default); }
+  .hop-dita .related-links .linklist, .hop-dita .related-links .familylinks { margin-bottom: 16px; }
+  .hop-dita .related-links strong { color: var(--text-primary); }
+  .hop-dita ul.linklist, .hop-dita ul.ullinks { list-style: none; padding-left: 0; margin: 4px 0 0; }
+  .hop-dita .fn-callout { text-decoration: none; }
+  .hop-dita div.fn { font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0; }
+  .hop-dita article > div.fn:not(div.fn + div.fn) { margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--border-default); }
+
+  /* Draft content (only rendered when requested) */
+  .hop-dita .draft-comment, .hop-dita .required-cleanup {
+    margin: 12px 0; padding: 8px 12px; border-radius: 8px; font-size: 0.9rem;
+    background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px dashed var(--color-warning-border);
+  }
+  .hop-dita .required-cleanup { background: var(--color-error-bg); color: var(--color-error-text); border-color: var(--color-error-border); }
+
+  .hop-dita .undefined_element { background: var(--color-error-bg); }
+}

@@ -23,4 +23,6 @@ app = create_hop_app(
     title="Hop Demo",
     description="hop-core demo — built-in auth, account, credential, agent, and admin interfaces",
     version="0.1.0",
+    # POST /dita/render, behind <hop-dita-content [dita]> on the DITA rendering page.
+    include_dita_router=True,
 )

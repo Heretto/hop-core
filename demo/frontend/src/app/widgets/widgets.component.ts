@@ -23,7 +23,9 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { HopConfirmDialogComponent, HopConfirmDialogData } from '@heretto/hop-ui';
+import {
+  HopConfirmDialogComponent, HopConfirmDialogData, HopDitaContentComponent,
+} from '@heretto/hop-ui';
 
 interface Swatch {
   name: string;
@@ -34,6 +36,31 @@ interface SwatchGroup {
   title: string;
   swatches: Swatch[];
 }
+
+const SAMPLE_TOPIC = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="release-channels">
+  <title>Release channels</title>
+  <shortdesc>Choose how quickly your workspace receives updates.</shortdesc>
+  <conbody>
+    <p>Every workspace follows one <term>release channel</term>. Change it in
+      <menucascade><uicontrol>Settings</uicontrol><uicontrol>Updates</uicontrol></menucascade>.</p>
+    <table id="channels" frame="all">
+      <title>Available channels</title>
+      <tgroup cols="2">
+        <colspec colname="c1" colwidth="1*"/><colspec colname="c2" colwidth="3*"/>
+        <thead><row><entry>Channel</entry><entry>Receives</entry></row></thead>
+        <tbody>
+          <row><entry>Stable</entry><entry>Tested releases, monthly.</entry></row>
+          <row><entry>Preview</entry><entry>New features as soon as they ship.</entry></row>
+        </tbody>
+      </tgroup>
+    </table>
+    <note type="tip">Use a separate workspace to try <b>Preview</b> safely.</note>
+    <p>Pin a channel from the command line:</p>
+    <codeblock outputclass="language-bash">hop config set channel stable</codeblock>
+  </conbody>
+</concept>`;
 
 interface MemberRow {
   name: string;
@@ -69,6 +96,7 @@ interface MemberRow {
     MatDividerModule,
     MatDialogModule,
     MatSnackBarModule,
+    HopDitaContentComponent,
   ],
   template: `
     <div class="widgets">
@@ -523,6 +551,45 @@ interface MemberRow {
         </div>
       </section>
 
+      <!-- DITA ------------------------------------------------------------ -->
+      <section>
+        <h2>DITA topic</h2>
+        <mat-card class="demo-card">
+          <mat-card-content>
+            <p class="section-note">
+              <code>&lt;hop-dita-content&gt;</code> renders a DITA topic the way the DITA Open
+              Toolkit's HTML5 output does, styled by the theme. Edit or paste a topic on the
+              <strong>Source</strong> tab, then open <strong>Rendered</strong>.
+            </p>
+            <mat-tab-group (selectedIndexChange)="onDitaTab($event)">
+              <mat-tab label="Source">
+                <div class="tab-body dita-source">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>DITA topic XML</mat-label>
+                    <textarea matInput [(ngModel)]="ditaSource" rows="18" spellcheck="false"></textarea>
+                  </mat-form-field>
+                  <button mat-stroked-button type="button" (click)="resetDita()">
+                    <mat-icon>restart_alt</mat-icon>
+                    Reset sample
+                  </button>
+                </div>
+              </mat-tab>
+              <mat-tab label="Rendered">
+                <div class="tab-body">
+                  @if (ditaWarnings.length) {
+                    <div class="callout warning dita-warnings">
+                      <mat-icon>warning</mat-icon>
+                      <span>{{ ditaWarnings.join(' · ') }}</span>
+                    </div>
+                  }
+                  <hop-dita-content [dita]="ditaRendered" [headingOffset]="2" (rendered)="ditaWarnings = $event.warnings" />
+                </div>
+              </mat-tab>
+            </mat-tab-group>
+          </mat-card-content>
+        </mat-card>
+      </section>
+
       <!-- OVERLAYS -------------------------------------------------------- -->
       <section>
         <h2>Dialogs &amp; notifications</h2>
@@ -631,6 +698,10 @@ interface MemberRow {
 
     .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
     .result { margin-top: 16px; margin-bottom: 0; }
+
+    /* DITA topic */
+    .dita-source textarea { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; }
+    .dita-warnings { margin-bottom: 16px; }
   `]
 })
 export class WidgetsComponent {
@@ -646,6 +717,11 @@ export class WidgetsComponent {
   seats = 20;
 
   lastConfirm: boolean | null = null;
+
+  ditaSource = SAMPLE_TOPIC;
+  /** What the Rendered tab shows — set on switching to it, not on every keystroke. */
+  ditaRendered: string | null = null;
+  ditaWarnings: string[] = [];
 
   swatchGroups: SwatchGroup[] = [
     {
@@ -708,6 +784,16 @@ export class WidgetsComponent {
       .subscribe((result: boolean | undefined) => {
         this.lastConfirm = result ?? false;
       });
+  }
+
+  onDitaTab(index: number): void {
+    if (index === 1) {
+      this.ditaRendered = this.ditaSource;
+    }
+  }
+
+  resetDita(): void {
+    this.ditaSource = SAMPLE_TOPIC;
   }
 
   showSnack(): void {
