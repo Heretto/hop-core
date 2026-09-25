@@ -1,7 +1,6 @@
 import {
   Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output,
-  SimpleChanges, ViewChild, inject,
-} from '@angular/core';
+  SimpleChanges, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subscription } from 'rxjs';
@@ -27,6 +26,7 @@ export interface HopDitaLinkEvent {
  * can route topic-to-topic links itself.
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'hop-dita-content',
   standalone: true,
   // The content styles live in the theme (hop-core-theme → _dita.scss): the

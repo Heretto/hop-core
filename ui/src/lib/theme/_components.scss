@@ -33,22 +33,22 @@
   .hop-status-chip-pending {
     background-color: var(--color-warning-bg) !important;
     color: var(--color-warning-text) !important;
-    --mdc-chip-label-text-color: var(--color-warning-text);
+    --mat-chip-label-text-color: var(--color-warning-text);
   }
   .hop-status-chip-running {
     background-color: var(--color-info-bg) !important;
     color: var(--color-info-text) !important;
-    --mdc-chip-label-text-color: var(--color-info-text);
+    --mat-chip-label-text-color: var(--color-info-text);
   }
   .hop-status-chip-completed {
     background-color: var(--color-success-bg) !important;
     color: var(--color-success-text) !important;
-    --mdc-chip-label-text-color: var(--color-success-text);
+    --mat-chip-label-text-color: var(--color-success-text);
   }
   .hop-status-chip-failed {
     background-color: var(--color-error-bg) !important;
     color: var(--color-error-text) !important;
-    --mdc-chip-label-text-color: var(--color-error-text);
+    --mat-chip-label-text-color: var(--color-error-text);
   }
 
   // ---------------------------------------------------------------------------

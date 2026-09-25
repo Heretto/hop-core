@@ -96,7 +96,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       # npm ci so the published tarball is built from pinned tool versions.
       - name: Install build dependencies

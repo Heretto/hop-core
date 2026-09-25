@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -223,6 +223,7 @@ import { MatDividerModule } from '@angular/material/divider';
       </mat-card>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [`
     .auth-docs { max-width: 900px; margin: 0 auto; padding-bottom: 48px; }
     .back-link { margin-bottom: 16px; }

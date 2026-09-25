@@ -198,17 +198,19 @@ export const routes: Routes = [
 ];
 
 // app.config.ts
+import { provideZoneChangeDetection } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { hopAuthInterceptor } from '@heretto/hop-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    provideZoneChangeDetection(),   // hop-ui needs Zone.js; see AGENTS.md §7
     provideHttpClient(withInterceptors([hopAuthInterceptor])),
   ],
 };
 ```
 
-Apply the design system. It ships with `@heretto/hop-ui` (Angular 19 / Material
+Apply the design system. It ships with `@heretto/hop-ui` (Angular 22 / Material
 M3) — two steps give every hop-core app a consistent look and feel:
 
 **a. Load the fonts** in your `src/index.html` `<head>` (Inter, Roboto Mono,

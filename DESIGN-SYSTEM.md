@@ -12,7 +12,7 @@ overrides**, not a bespoke component library. Angular Material remains the
 component substrate; one SCSS mixin themes everything. Consistency comes from
 the tokens; custom interactions never have to fight the system.
 
-- **Stack:** Angular 19 · Angular Material 19 · Angular CDK 19
+- **Stack:** Angular 22 · Angular Material 22 · Angular CDK 22 (Zone.js change detection)
 - **Library:** `@heretto/hop-ui` (source at `ui/`, entry `ui/src/public-api.ts`)
 - **Brand:** navy `#011627` primary · teal `#79ECDD` accent · magenta `#AD4780` tertiary · gold `#F7D48E` warning
 
@@ -625,7 +625,7 @@ HopCredentialService {
 
 ```typescript
 // app.config.ts
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
@@ -634,6 +634,9 @@ import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // hop-ui components need Zone.js change detection (keep "zone.js" in
+    // angular.json polyfills) — Angular 21+ CLI apps are zoneless by default.
+    provideZoneChangeDetection(),
     provideRouter(routes),
     provideHttpClient(withInterceptors([hopAuthInterceptor])),
     provideAnimations(),

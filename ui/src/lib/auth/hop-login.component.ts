@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, inject, NgZone, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, AfterViewInit, inject, NgZone, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -15,6 +15,7 @@ import { HopOrganizationService } from '../shared/hop-organization.service';
 import { HOP_API_URL } from '../tokens/hop-api-url.token';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'hop-login',
   standalone: true,
   imports: [
