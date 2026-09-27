@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import uuid
 import re
@@ -174,7 +174,7 @@ async def login(
 
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    expires_at = int((datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
+    expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
 
     set_auth_cookies(response, access_token, refresh_token)
 
@@ -242,7 +242,7 @@ async def refresh_token_endpoint(
 
         new_access_token = create_access_token(data=token_data)
         new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
-        expires_at = int((datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
+        expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
 
         set_auth_cookies(response, new_access_token, new_refresh_token)
 
