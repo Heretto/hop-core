@@ -114,7 +114,7 @@ async def switch_organization(
 
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data={"sub": str(current_user.id)})
-    expires_at = int((datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
+    expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
 
     set_auth_cookies(response, access_token, refresh_token)
 

@@ -7,7 +7,7 @@ Microsoft: Server-side authorization code flow via authlib.
 import re
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
 from pydantic import BaseModel
@@ -167,7 +167,7 @@ def _set_auth_cookies_and_respond(user: User, db: Session) -> dict:
     access_token = create_access_token(data=token_data)
     refresh_token = create_refresh_token(data={"sub": str(user.id)})
     expires_at = int((
-        datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
     ).timestamp())
 
     return {

@@ -3,7 +3,7 @@
 All settings access is lazy — no module-level get_settings() calls.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import secrets
 import ipaddress
@@ -79,9 +79,9 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     settings = get_settings()
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
     to_encode.update({"exp": expire, "type": "access"})
     secret, algorithm = _get_jwt_settings()
     return jwt.encode(to_encode, secret, algorithm=algorithm)
@@ -91,7 +91,7 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
     from hop_core.config import get_settings
     settings = get_settings()
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=settings.jwt_refresh_token_expire_days)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_token_expire_days)
     to_encode.update({"exp": expire, "type": "refresh"})
     secret, algorithm = _get_jwt_settings()
     return jwt.encode(to_encode, secret, algorithm=algorithm)
@@ -108,7 +108,7 @@ def decode_token(token: str) -> Dict[str, Any]:
 def create_password_reset_token(email: str) -> str:
     from hop_core.config import get_settings
     settings = get_settings()
-    expire = datetime.utcnow() + timedelta(minutes=settings.password_reset_token_expire_minutes)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.password_reset_token_expire_minutes)
     to_encode = {"sub": email, "type": "password_reset", "exp": expire}
     secret, algorithm = _get_jwt_settings()
     return jwt.encode(to_encode, secret, algorithm=algorithm)
