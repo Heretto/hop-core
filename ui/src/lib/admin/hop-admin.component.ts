@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -199,6 +199,7 @@ export class HopAdminComponent implements OnInit {
   private accountService = inject(HopAccountService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   organization: Organization | null = null;
   members: OrganizationMember[] = [];
@@ -224,6 +225,7 @@ export class HopAdminComponent implements OnInit {
       next: org => {
         this.organization = org;
         this.orgForm.patchValue({ name: org.name });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -231,16 +233,16 @@ export class HopAdminComponent implements OnInit {
   private loadMembers(): void {
     this.loadingMembers = true;
     this.organizationService.listMembers().subscribe({
-      next: members => { this.members = members; this.loadingMembers = false; },
-      error: () => { this.loadingMembers = false; },
+      next: members => { this.members = members; this.loadingMembers = false; this.cdr.markForCheck(); },
+      error: () => { this.loadingMembers = false; this.cdr.markForCheck(); },
     });
   }
 
   private loadInvitations(): void {
     this.loadingInvitations = true;
     this.organizationService.listInvitations().subscribe({
-      next: invitations => { this.invitations = invitations; this.loadingInvitations = false; },
-      error: () => { this.loadingInvitations = false; },
+      next: invitations => { this.invitations = invitations; this.loadingInvitations = false; this.cdr.markForCheck(); },
+      error: () => { this.loadingInvitations = false; this.cdr.markForCheck(); },
     });
   }
 
@@ -255,10 +257,12 @@ export class HopAdminComponent implements OnInit {
         this.orgForm.markAsPristine();
         this.updatingOrg = false;
         this.snackBar.open('Organization updated successfully', 'Close', { duration: 3000 });
+        this.cdr.markForCheck();
       },
       error: () => {
         this.updatingOrg = false;
         this.snackBar.open('Failed to update organization', 'Close', { duration: 3000 });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -289,6 +293,7 @@ export class HopAdminComponent implements OnInit {
       next: updated => {
         member.role = updated.role;
         this.snackBar.open('Member role updated', 'Close', { duration: 3000 });
+        this.cdr.markForCheck();
       },
       error: () => this.snackBar.open('Failed to update member role', 'Close', { duration: 3000 }),
     });

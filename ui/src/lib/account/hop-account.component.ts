@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -212,6 +212,7 @@ export class HopAccountComponent implements OnInit {
   private accountService = inject(HopAccountService);
   private authService = inject(HopAuthService);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   loading = true;
   accountInfo: AccountInfo | null = null;
@@ -248,10 +249,12 @@ export class HopAccountComponent implements OnInit {
         this.accountInfo = info;
         this.emailForm.patchValue({ email: info.email });
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackBar.open('Failed to load account information', 'Close', { duration: 3000 });
         this.loading = false;
+        this.cdr.markForCheck();
       },
     });
   }
@@ -268,11 +271,13 @@ export class HopAccountComponent implements OnInit {
       next: () => {
         this.snackBar.open('Email updated successfully', 'Close', { duration: 3000 });
         this.updatingEmail = false;
+        this.cdr.markForCheck();
         this.loadAccountInfo();
       },
       error: error => {
         this.snackBar.open(error.error?.detail || 'Failed to update email', 'Close', { duration: 5000 });
         this.updatingEmail = false;
+        this.cdr.markForCheck();
       },
     });
   }
@@ -287,10 +292,12 @@ export class HopAccountComponent implements OnInit {
         this.snackBar.open('Password changed successfully', 'Close', { duration: 3000 });
         this.updatingPassword = false;
         this.passwordForm.reset();
+        this.cdr.markForCheck();
       },
       error: error => {
         this.snackBar.open(error.error?.detail || 'Failed to update password', 'Close', { duration: 5000 });
         this.updatingPassword = false;
+        this.cdr.markForCheck();
       },
     });
   }

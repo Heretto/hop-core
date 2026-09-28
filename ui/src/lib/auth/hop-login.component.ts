@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, inject, NgZone, ElementRef, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, inject, NgZone, ElementRef, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -160,6 +160,7 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
   private organizationService = inject(HopOrganizationService);
   private ngZone = inject(NgZone);
   private apiUrl = inject(HOP_API_URL);
+  private cdr = inject(ChangeDetectorRef);
 
   @ViewChild('googleBtnContainer') googleBtnContainer?: ElementRef;
 
@@ -209,6 +210,7 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
           this.googleClientId = providers.google_client_id;
           this.loadGoogleScript();
         }
+        this.cdr.markForCheck();
       },
       error: () => {},
     });
@@ -256,11 +258,13 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
       this.authService.loginWithGoogleToken(response.credential).subscribe({
         next: () => {
           this.loading = false;
+          this.cdr.markForCheck();
           this.authService.navigateToDashboard(this.returnUrl);
         },
         error: err => {
           this.errorMessage = err.error?.detail || 'Google sign-in failed. Please try again.';
           this.loading = false;
+          this.cdr.markForCheck();
         },
       });
     });
@@ -283,10 +287,12 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
           this.isRegisterMode = false;
           this.errorMessage = 'Account created! Please login.';
           this.loading = false;
+          this.cdr.markForCheck();
         },
         error: error => {
           this.errorMessage = error.error?.detail || 'Registration failed';
           this.loading = false;
+          this.cdr.markForCheck();
         },
       });
     } else {
@@ -300,10 +306,12 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
           } else {
             this.authService.navigateToDashboard(this.returnUrl);
           }
+          this.cdr.markForCheck();
         },
         error: error => {
           this.errorMessage = error.error?.detail || 'Login failed';
           this.loading = false;
+          this.cdr.markForCheck();
         },
       });
     }
@@ -316,11 +324,13 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
       next: response => {
         this.authService.updateTokens(response);
         this.loading = false;
+        this.cdr.markForCheck();
         this.authService.navigateToDashboard(this.returnUrl);
       },
       error: error => {
         this.errorMessage = error.error?.detail || 'Failed to switch organization';
         this.loading = false;
+        this.cdr.markForCheck();
       },
     });
   }

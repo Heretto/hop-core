@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -186,6 +186,7 @@ export class HopAgentsComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private cdr = inject(ChangeDetectorRef);
 
   agents: AgentSummary[] = [];
   loading = false;
@@ -197,10 +198,11 @@ export class HopAgentsComponent implements OnInit {
   private loadAgents(): void {
     this.loading = true;
     this.agentService.listAgents().subscribe({
-      next: agents => { this.agents = agents; this.loading = false; },
+      next: agents => { this.agents = agents; this.loading = false; this.cdr.markForCheck(); },
       error: () => {
         this.loading = false;
         this.snackBar.open('Failed to load agents', 'Close', { duration: 3000 });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -246,6 +248,7 @@ export class HopAgentsComponent implements OnInit {
         this.snackBar.open(
           updated.is_active ? 'Agent activated' : 'Agent deactivated', 'Close', { duration: 3000 },
         );
+        this.cdr.markForCheck();
       },
       error: error => this.showError(error, 'Failed to update agent'),
     });

@@ -1,6 +1,6 @@
 import {
   Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output,
-  SimpleChanges, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
+  SimpleChanges, ViewChild, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subscription } from 'rxjs';
@@ -50,6 +50,7 @@ export interface HopDitaLinkEvent {
 export class HopDitaContentComponent implements OnChanges, OnInit, OnDestroy {
   private ditaService = inject(HopDitaService);
   private document = inject(DOCUMENT);
+  private cdr = inject(ChangeDetectorRef);
 
   /** Rendered DITA HTML. Ignored when `dita` is set. */
   @Input() html: string | null = null;
@@ -106,12 +107,14 @@ export class HopDitaContentComponent implements OnChanges, OnInit, OnDestroy {
           this.lang = result.lang;
           this.show(result.html);
           this.rendered.emit(result);
+          this.cdr.markForCheck();
         },
         error: (err: HttpErrorResponse) => {
           this.show('');
           this.error = typeof err.error?.detail === 'string'
             ? err.error.detail
             : 'This topic could not be rendered.';
+          this.cdr.markForCheck();
         },
       });
   }
