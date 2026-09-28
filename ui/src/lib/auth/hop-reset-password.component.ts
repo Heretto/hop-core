@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -78,6 +78,7 @@ export class HopResetPasswordComponent implements OnInit {
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private authService = inject(HopAuthService);
+  private cdr = inject(ChangeDetectorRef);
 
   token: string | null = null;
   hidePassword = true;
@@ -104,10 +105,11 @@ export class HopResetPasswordComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
     this.authService.resetPassword(this.token, newPassword!).subscribe({
-      next: res => { this.successMessage = res.message; this.loading = false; },
+      next: res => { this.successMessage = res.message; this.loading = false; this.cdr.markForCheck(); },
       error: err => {
         this.errorMessage = err.error?.detail || 'Password reset failed. The link may have expired.';
         this.loading = false;
+        this.cdr.markForCheck();
       },
     });
   }

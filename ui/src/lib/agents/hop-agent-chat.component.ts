@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, ViewChild, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -182,6 +182,7 @@ interface Turn {
 export class HopAgentChatComponent {
   private fb = inject(FormBuilder);
   private agentService = inject(HopAgentService);
+  private cdr = inject(ChangeDetectorRef);
 
   /** Null for an unsaved agent — there is nothing to talk to yet. */
   @Input() agentId: string | null = null;
@@ -236,6 +237,7 @@ export class HopAgentChatComponent {
         this.turns = [...this.turns, { role: 'assistant', content: response.message.content }];
         this.systemPrompt = response.system_prompt;
         this.ranOn = `${response.ai_configuration_name} — ${response.model}`;
+        this.cdr.markForCheck();
         this.scrollToEnd();
       },
       error: error => {
@@ -244,6 +246,7 @@ export class HopAgentChatComponent {
           role: 'error',
           content: error?.error?.detail || 'The agent could not be reached.',
         }];
+        this.cdr.markForCheck();
         this.scrollToEnd();
       },
     });

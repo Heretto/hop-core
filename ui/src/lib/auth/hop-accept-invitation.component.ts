@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -166,6 +166,7 @@ export class HopAcceptInvitationComponent implements OnInit {
   private http = inject(HttpClient);
   private snackBar = inject(MatSnackBar);
   private apiUrl = inject(HOP_API_URL);
+  private cdr = inject(ChangeDetectorRef);
 
   token = '';
   invitationInfo: InvitationInfo | null = null;
@@ -207,6 +208,7 @@ export class HopAcceptInvitationComponent implements OnInit {
     ).subscribe(info => {
       if (info) this.invitationInfo = info;
       this.loading = false;
+      this.cdr.markForCheck();
     });
   }
 
@@ -222,6 +224,7 @@ export class HopAcceptInvitationComponent implements OnInit {
         this.success = true;
         this.successMessage = response.message || 'Invitation accepted successfully!';
         this.accepting = false;
+        this.cdr.markForCheck();
         setTimeout(() => this.router.navigate(['/login']), 3000);
       },
       error: error => {
@@ -235,6 +238,7 @@ export class HopAcceptInvitationComponent implements OnInit {
         } else {
           this.snackBar.open(error.error?.detail || 'Failed to accept invitation', 'Close', { duration: 5000 });
         }
+        this.cdr.markForCheck();
       },
     });
   }
@@ -248,11 +252,13 @@ export class HopAcceptInvitationComponent implements OnInit {
         this.success = true;
         this.successMessage = response.message || 'You have been added to the organization!';
         this.accepting = false;
+        this.cdr.markForCheck();
         setTimeout(() => this.router.navigate(['/login']), 3000);
       },
       error: error => {
         this.accepting = false;
         this.snackBar.open(error.error?.detail || 'Failed to join organization', 'Close', { duration: 5000 });
+        this.cdr.markForCheck();
       },
     });
   }

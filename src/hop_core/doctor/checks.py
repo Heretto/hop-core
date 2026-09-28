@@ -620,6 +620,135 @@ def _is_git_ignored(path: Path, root: Path) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# frontend.zoneless
+
+
+def check_zoneless(project: Project) -> list[Finding]:
+    """Detect Angular zoneless mode and verify the hop-ui version supports it.
+
+    hop-ui components before 0.1.8 relied on Zone.js to trigger change
+    detection after HTTP responses. In a zoneless app, state mutated in
+    subscribe() callbacks never renders until the next user interaction.
+    hop-ui 0.1.8+ calls ChangeDetectorRef.markForCheck() in every callback,
+    which notifies Angular's own scheduler and works in both zoned and
+    zoneless apps.
+    """
+    cid = "frontend.zoneless"
+    if project.frontend is None:
+        return [Finding(cid, Severity.SKIP, "no frontend directory detected")]
+
+    # Detect zoneless via polyfills in angular.json --------------------------
+    ng_path = project.frontend / "angular.json"
+    ng = _load_json(ng_path)
+    zoneless_signals: list[str] = []
+
+    if ng is not None:
+        # angular.json polyfills can be a list or a string; zone.js absence signals zoneless
+        try:
+            projects = ng.get("projects", {})
+            for proj in projects.values():
+                for config_name in ("build", "test"):
+                    options = (
+                        proj.get("architect", {})
+                        .get(config_name, {})
+                        .get("options", {})
+                    )
+                    polyfills = options.get("polyfills", [])
+                    if isinstance(polyfills, str):
+                        polyfills = [polyfills]
+                    if polyfills and not any("zone.js" in p for p in polyfills):
+                        zoneless_signals.append(f"zone.js absent from {config_name} polyfills in angular.json")
+        except (AttributeError, TypeError):
+            pass
+
+    # Detect provideZonelessChangeDetection in source -------------------------
+    src = project.frontend / "src"
+    if src.is_dir():
+        for ts_path in src.rglob("*.ts"):
+            text = _read(ts_path)
+            if text and "ZonelessChangeDetection" in text:
+                line = _line_of(text, "ZonelessChangeDetection")
+                zoneless_signals.append(
+                    _loc(ts_path, project.root, line)
+                    + " — provideZonelessChangeDetection detected"
+                )
+                break
+
+    if not zoneless_signals:
+        return [
+            Finding(
+                cid,
+                Severity.PASS,
+                "Zone.js is present; zoneless compatibility is not required",
+            )
+        ]
+
+    # Zoneless detected — check the hop-ui version ---------------------------
+    pkg_lock = _load_json(project.frontend / "package-lock.json")
+    hop_ui_version: str | None = None
+    if pkg_lock:
+        try:
+            # lockfileVersion 3 shape
+            pkgs = pkg_lock.get("packages", {})
+            for key, val in pkgs.items():
+                if "@heretto/hop-ui" in key and isinstance(val, dict):
+                    hop_ui_version = val.get("version")
+                    break
+        except (AttributeError, TypeError):
+            pass
+
+    def _version_tuple(v: str) -> tuple[int, ...]:
+        try:
+            return tuple(int(x) for x in v.split(".")[:3])
+        except ValueError:
+            return (0,)
+
+    signals_text = "; ".join(zoneless_signals)
+
+    if hop_ui_version is None:
+        return [
+            Finding(
+                cid,
+                Severity.WARN,
+                "Angular is running zoneless but the @heretto/hop-ui version could not be determined",
+                f"Detected: {signals_text}\n"
+                "hop-ui components before 0.1.9 do not work correctly in zoneless apps:\n"
+                "state set in HTTP callbacks never renders until the next user interaction.\n"
+                "hop-ui 0.1.9+ is zoneless-safe.",
+                "Verify @heretto/hop-ui >= 0.1.9 in package-lock.json.",
+                _loc(ng_path, project.root) if ng else None,
+            )
+        ]
+
+    if _version_tuple(hop_ui_version) < _version_tuple("0.1.9"):
+        return [
+            Finding(
+                cid,
+                Severity.FAIL,
+                f"Angular is running zoneless but @heretto/hop-ui {hop_ui_version} is not zoneless-safe",
+                f"Detected: {signals_text}\n"
+                "hop-ui components before 0.1.9 rely on Zone.js to trigger change\n"
+                "detection after HTTP responses. Without it, pages like Agents and\n"
+                "Credentials load their data but do not redraw until the next user\n"
+                "interaction (a click, a keypress, anything).\n"
+                "hop-ui 0.1.9+ calls ChangeDetectorRef.markForCheck() in every\n"
+                "HTTP callback, which works in both zoned and zoneless apps.",
+                "Upgrade @heretto/hop-ui to >= 0.1.9.",
+                _loc(project.frontend / "package-lock.json", project.root),
+            )
+        ]
+
+    return [
+        Finding(
+            cid,
+            Severity.PASS,
+            f"Angular is running zoneless and @heretto/hop-ui {hop_ui_version} is zoneless-safe",
+            location=_loc(ng_path, project.root) if ng else None,
+        )
+    ]
+
+
+# ---------------------------------------------------------------------------
 # docs.agent_notes
 
 _AGENT_NOTES = ("AGENTS.md", "CLAUDE.md")
@@ -661,5 +790,6 @@ REGISTRY = (
     check_inline_critical,
     check_docker_build_context,
     check_required_settings,
+    check_zoneless,
     check_agent_notes,
 )

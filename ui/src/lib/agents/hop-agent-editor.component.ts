@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators,
@@ -401,6 +401,7 @@ export class HopAgentEditorComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   agent: Agent | null = null;
   aiConfigurations: AiConfiguration[] = [];
@@ -486,10 +487,12 @@ export class HopAgentEditorComponent implements OnInit {
           this.contextFiles.push(this.contextFileGroup(file));
         }
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.loading = false;
         this.snackBar.open('Failed to load agent', 'Close', { duration: 4000 });
+        this.cdr.markForCheck();
         this.cancel();
       },
     });
@@ -502,7 +505,7 @@ export class HopAgentEditorComponent implements OnInit {
   private loadAiConfigurations(): void {
     this.agentService.listAiConfigurations().pipe(
       catchError(() => of([] as AiConfiguration[])),
-    ).subscribe(configurations => { this.aiConfigurations = configurations; });
+    ).subscribe(configurations => { this.aiConfigurations = configurations; this.cdr.markForCheck(); });
   }
 
   /** Narrowing helper — templates cannot call `as FormGroup`. */
@@ -621,6 +624,7 @@ export class HopAgentEditorComponent implements OnInit {
         this.snackBar.open(
           wasNew ? 'Agent created' : 'Agent saved', 'Close', { duration: 3000 },
         );
+        this.cdr.markForCheck();
         if (wasNew) {
           this.router.navigate(['..', agent.id], { relativeTo: this.route });
         }
@@ -629,6 +633,7 @@ export class HopAgentEditorComponent implements OnInit {
       error: error => {
         this.saving = false;
         this.configError = error?.error?.detail || 'Failed to save agent.';
+        this.cdr.markForCheck();
       },
     });
   }
@@ -649,10 +654,12 @@ export class HopAgentEditorComponent implements OnInit {
         this.agent = agent;
         this.form.get('feedback_memory')?.markAsPristine();
         this.snackBar.open('Memory saved', 'Close', { duration: 3000 });
+        this.cdr.markForCheck();
       },
       error: error => {
         this.saving = false;
         this.memoryError = error?.error?.detail || 'Failed to save memory.';
+        this.cdr.markForCheck();
       },
     });
   }

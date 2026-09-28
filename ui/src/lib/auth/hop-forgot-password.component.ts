@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -66,6 +66,7 @@ import { HopAuthService } from './hop-auth.service';
 export class HopForgotPasswordComponent {
   private fb = inject(FormBuilder);
   private authService = inject(HopAuthService);
+  private cdr = inject(ChangeDetectorRef);
 
   form = this.fb.group({ email: ['', [Validators.required, Validators.email]] });
   loading = false;
@@ -77,8 +78,8 @@ export class HopForgotPasswordComponent {
     this.loading = true;
     this.errorMessage = '';
     this.authService.forgotPassword(this.form.value.email!).subscribe({
-      next: res => { this.successMessage = res.message; this.loading = false; },
-      error: err => { this.errorMessage = err.error?.detail || 'An error occurred. Please try again.'; this.loading = false; },
+      next: res => { this.successMessage = res.message; this.loading = false; this.cdr.markForCheck(); },
+      error: err => { this.errorMessage = err.error?.detail || 'An error occurred. Please try again.'; this.loading = false; this.cdr.markForCheck(); },
     });
   }
 }

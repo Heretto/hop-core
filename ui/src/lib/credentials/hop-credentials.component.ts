@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -189,6 +189,7 @@ export class HopCredentialsComponent implements OnInit {
   private credentialService = inject(HopCredentialService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   groups: CredentialGroup[] = [];
   loading = false;
@@ -217,10 +218,12 @@ export class HopCredentialsComponent implements OnInit {
       next: ({ types, credentials }) => {
         this.groups = this.buildGroups(types, credentials);
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.loading = false;
         this.snackBar.open('Failed to load credentials', 'Close', { duration: 3000 });
+        this.cdr.markForCheck();
       },
     });
   }
@@ -247,6 +250,7 @@ export class HopCredentialsComponent implements OnInit {
         for (const id of [...this.results.keys()]) {
           if (!liveIds.has(id)) this.results.delete(id);
         }
+        this.cdr.markForCheck();
       },
       error: () => {
         this.snackBar.open('Failed to refresh credentials', 'Close', { duration: 3000 });
@@ -332,6 +336,7 @@ export class HopCredentialsComponent implements OnInit {
         this.testing.delete(credential.id);
         this.results.set(credential.id, result);
         data.result = result;
+        this.cdr.markForCheck();
       },
       error: error => {
         this.testing.delete(credential.id);
@@ -344,6 +349,7 @@ export class HopCredentialsComponent implements OnInit {
         };
         this.results.set(credential.id, result);
         data.result = result;
+        this.cdr.markForCheck();
       },
     });
 

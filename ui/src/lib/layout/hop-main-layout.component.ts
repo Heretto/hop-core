@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, OnInit, inject, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -224,6 +224,7 @@ export class HopMainLayoutComponent implements OnInit {
   private authService = inject(HopAuthService);
   private organizationService = inject(HopOrganizationService);
   private accountService = inject(HopAccountService);
+  private cdr = inject(ChangeDetectorRef);
 
   currentOrganization$ = this.organizationService.currentOrganization$;
   isAdmin$ = this.accountService.isAdmin$;
@@ -235,7 +236,7 @@ export class HopMainLayoutComponent implements OnInit {
       next: () => {
         this.organizationService.getCurrentOrganization().subscribe();
         this.organizationService.listUserOrganizations().subscribe({
-          next: orgs => { this.userOrganizations = orgs; },
+          next: orgs => { this.userOrganizations = orgs; this.cdr.markForCheck(); },
         });
       },
     });
