@@ -608,6 +608,12 @@ keys=keys_from_map(...))`, and the route reports unresolved references in
 
 ## 11. SSO-only deployments
 
+**`SSO_ONLY=true` is the preferred way to run an app in production.** Sign-in,
+password policy and offboarding then live with the organization's identity
+provider rather than in each app. Use password accounts for local development
+and for deployments with no provider available. `demo/backend/.env.example`
+lists every setting involved.
+
 **Check**
 
 ```bash

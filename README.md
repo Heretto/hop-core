@@ -125,7 +125,7 @@ def get_settings() -> AppSettings:
 ```env
 CORS_ORIGINS=http://localhost:4200
 COOKIE_SECURE=false
-SSO_ONLY=false          # true: SSO is the only way in; password sign-in, reset and sign-up are refused (AGENTS.md §11)
+SSO_ONLY=false          # true (preferred in production): SSO is the only way in; password sign-in, reset and sign-up are refused (AGENTS.md §11)
 SINGLE_ORG_MODE=false
 SMTP_HOST=
 SMTP_FROM_EMAIL=
