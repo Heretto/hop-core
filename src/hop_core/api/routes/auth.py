@@ -25,6 +25,7 @@ from hop_core.core.security import (
 )
 from hop_core.core.exceptions import AuthenticationError
 from hop_core.core.rate_limit import limiter
+from hop_core.api.dependencies import reject_password_auth_if_sso_only
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ async def register(
     return new_user
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(reject_password_auth_if_sso_only)])
 @limiter.limit("30/minute")
 async def login(
     request: Request,
@@ -227,6 +228,16 @@ async def refresh_token_endpoint(
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
+        # Tokens do not record how a session signed in, but an account that has
+        # never linked an SSO identity can only be holding a password session.
+        # Ending it here means turning SSO_ONLY on takes effect within one
+        # access-token lifetime, not one refresh-token lifetime.
+        if settings.sso_only and not user.oauth_provider:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Please sign in using SSO.",
+            )
+
         token_data = {"sub": str(user.id), "email": user.email}
 
         if user.current_organization_id:
@@ -268,7 +279,7 @@ async def logout(response: Response):
     return {"message": "Successfully logged out"}
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(reject_password_auth_if_sso_only)])
 @limiter.limit("3/minute")
 async def forgot_password(
     request: Request,
@@ -295,7 +306,7 @@ async def forgot_password(
     return {"message": "If an account with that email exists, a password reset link has been sent."}
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", dependencies=[Depends(reject_password_auth_if_sso_only)])
 @limiter.limit("5/minute")
 async def reset_password(
     request: Request,

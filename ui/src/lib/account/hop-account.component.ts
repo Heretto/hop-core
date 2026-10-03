@@ -77,8 +77,24 @@ import { HopAuthService } from '../auth/hop-auth.service';
           </mat-card-content>
         </mat-card>
 
+        <!-- SSO_ONLY: the identity provider owns the address and the credentials -->
+        <mat-card class="update-card" *ngIf="ssoOnly">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>badge</mat-icon>
+              Sign-in
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p class="sso-managed">
+              Your email address and sign-in are managed by your organization's single
+              sign-on provider. Change them there.
+            </p>
+          </mat-card-content>
+        </mat-card>
+
         <!-- Update Email Card -->
-        <mat-card class="update-card">
+        <mat-card class="update-card" *ngIf="providersLoaded && !ssoOnly">
           <mat-card-header>
             <mat-card-title>
               <mat-icon>email</mat-icon>
@@ -106,7 +122,7 @@ import { HopAuthService } from '../auth/hop-auth.service';
         </mat-card>
 
         <!-- Change Password Card -->
-        <mat-card class="update-card">
+        <mat-card class="update-card" *ngIf="providersLoaded && !ssoOnly">
           <mat-card-header>
             <mat-card-title>
               <mat-icon>lock</mat-icon>
@@ -197,6 +213,7 @@ import { HopAuthService } from '../auth/hop-auth.service';
     .form-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
     .form-actions button { display: flex; align-items: center; gap: 8px; }
     .danger-card { border: 2px solid var(--color-error); background-color: var(--color-error-bg); }
+    .sso-managed { margin: 0; color: var(--text-secondary); }
     .danger-title { color: var(--color-error); display: flex; align-items: center; gap: 10px; }
     .danger-content { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
     .danger-text h3 { margin: 0 0 8px 0; color: var(--color-error-text); }
@@ -216,6 +233,8 @@ export class HopAccountComponent implements OnInit {
 
   loading = true;
   accountInfo: AccountInfo | null = null;
+  ssoOnly = false;
+  providersLoaded = false;
 
   emailForm: FormGroup;
   passwordForm: FormGroup;
@@ -239,6 +258,17 @@ export class HopAccountComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.authService.getSSOProviders().subscribe({
+      next: providers => {
+        this.ssoOnly = providers.sso_only ?? false;
+        this.providersLoaded = true;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.providersLoaded = true;
+        this.cdr.markForCheck();
+      },
+    });
     this.loadAccountInfo();
   }
 

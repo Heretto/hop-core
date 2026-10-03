@@ -19,6 +19,7 @@ from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationMember, OrganizationInvitation
 from hop_core.core.security import get_password_hash, verify_password
 from hop_core.core.rate_limit import limiter
+from hop_core.api.dependencies import reject_password_auth_if_sso_only
 
 router = APIRouter(prefix="/invitations")
 
@@ -86,7 +87,13 @@ async def get_invitation_info(
     )
 
 
-@router.post("/accept/{token}", response_model=AcceptInvitationResponse)
+# Both accept routes take a password, so SSO_ONLY refuses them. Invitees there
+# sign in with SSO and use the authenticated
+# POST /organizations/invitations/accept/{token} instead.
+@router.post(
+    "/accept/{token}", response_model=AcceptInvitationResponse,
+    dependencies=[Depends(reject_password_auth_if_sso_only)],
+)
 @limiter.limit("20/minute")
 async def accept_invitation_new_user(
     request: Request,
@@ -185,7 +192,7 @@ class ExistingUserAcceptRequest(BaseModel):
     password: str
 
 
-@router.post("/accept-existing/{token}")
+@router.post("/accept-existing/{token}", dependencies=[Depends(reject_password_auth_if_sso_only)])
 @limiter.limit("20/minute")
 async def accept_invitation_existing_user(
     request: Request,

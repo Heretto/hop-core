@@ -125,7 +125,7 @@ def get_settings() -> AppSettings:
 ```env
 CORS_ORIGINS=http://localhost:4200
 COOKIE_SECURE=false
-SSO_ONLY=false
+SSO_ONLY=false          # true: SSO is the only way in; password sign-in, reset and sign-up are refused (AGENTS.md §11)
 SINGLE_ORG_MODE=false
 SMTP_HOST=
 SMTP_FROM_EMAIL=
@@ -198,13 +198,11 @@ export const routes: Routes = [
 ];
 
 // app.config.ts
-import { provideZoneChangeDetection } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { hopAuthInterceptor } from '@heretto/hop-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection(),   // hop-ui needs Zone.js; see AGENTS.md §7
     provideHttpClient(withInterceptors([hopAuthInterceptor])),
   ],
 };
