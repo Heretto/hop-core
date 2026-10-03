@@ -70,14 +70,26 @@ import { HOP_API_URL } from '../tokens/hop-api-url.token';
               <mat-icon>login</mat-icon>
               Continue with Microsoft
             </button>
-            <div class="sso-divider">
+            <div class="sso-divider" *ngIf="!ssoOnly">
               <mat-divider></mat-divider>
               <span class="sso-divider-text">or sign in with email</span>
               <mat-divider></mat-divider>
             </div>
           </div>
 
-          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+          <!-- SSO_ONLY: the provider buttons are the only way in. -->
+          <ng-container *ngIf="ssoOnly">
+            <p class="sso-only-hint" *ngIf="googleEnabled || microsoftEnabled">
+              Sign in with your organization account.
+            </p>
+            <p class="sso-only-hint" *ngIf="!googleEnabled && !microsoftEnabled">
+              No sign-in method is configured. Contact your administrator.
+            </p>
+            <div class="error-message" *ngIf="errorMessage">{{ errorMessage }}</div>
+          </ng-container>
+
+          <!-- Held back until the providers load, so it doesn't flash under SSO_ONLY. -->
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" *ngIf="providersLoaded && !ssoOnly">
             <mat-form-field appearance="outline" class="full-width"
                             *ngIf="isRegisterMode && !singleOrgMode">
               <mat-label>Organization Name</mat-label>
@@ -144,6 +156,7 @@ import { HOP_API_URL } from '../tokens/hop-api-url.token';
     .org-role { text-transform: capitalize; color: var(--text-secondary); }
     .loading-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; }
     .forgot-password-row { text-align: center; margin-top: 12px; }
+    .sso-only-hint { text-align: center; color: var(--text-secondary); font-size: 14px; }
     .forgot-password-link { color: var(--text-link); text-decoration: none; font-size: 14px; }
     .sso-buttons { margin-bottom: 16px; }
     .google-btn-wrapper { display: flex; justify-content: center; margin-bottom: 8px; }
@@ -179,6 +192,7 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
   microsoftEnabled = false;
   ssoOnly = false;
   singleOrgMode = false;
+  providersLoaded = false;
 
   loginForm: FormGroup = this.fb.group({
     organizationName: ['', []],
@@ -206,13 +220,18 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
         this.microsoftEnabled = providers.microsoft;
         this.ssoOnly = providers.sso_only ?? false;
         this.singleOrgMode = providers.single_org_mode ?? false;
+        this.providersLoaded = true;
         if (providers.google && providers.google_client_id) {
           this.googleClientId = providers.google_client_id;
           this.loadGoogleScript();
         }
         this.cdr.markForCheck();
       },
-      error: () => {},
+      // Unknown configuration: fall back to the password form rather than a blank card.
+      error: () => {
+        this.providersLoaded = true;
+        this.cdr.markForCheck();
+      },
     });
   }
 

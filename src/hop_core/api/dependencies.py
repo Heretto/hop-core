@@ -164,3 +164,17 @@ async def get_current_superuser(
             detail="Not enough permissions",
         )
     return current_user
+
+
+SSO_ONLY_DETAIL = "Password sign-in is disabled. Please sign in using SSO."
+
+
+def reject_password_auth_if_sso_only() -> None:
+    """Route dependency for every endpoint that authenticates with, or sets, a password.
+
+    With SSO_ONLY on, the identity provider is the only way in: password login,
+    password reset and password-based invitation acceptance are all refused.
+    """
+    from hop_core.config import get_settings
+    if get_settings().sso_only:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_ONLY_DETAIL)

@@ -12,6 +12,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { HOP_API_URL } from '../tokens/hop-api-url.token';
+import { HopAuthService } from './hop-auth.service';
+import { HopOrganizationService } from '../shared/hop-organization.service';
 
 export interface InvitationInfo {
   email: string;
@@ -48,7 +50,7 @@ export interface InvitationInfo {
         </div>
 
         <!-- Invitation Info -->
-        <div *ngIf="invitationInfo && !loading && !error">
+        <div *ngIf="invitationInfo && !loading && !error && !success">
           <mat-card-header>
             <mat-icon mat-card-avatar class="invitation-icon">mail_outline</mat-icon>
             <mat-card-title>Organization Invitation</mat-card-title>
@@ -77,8 +79,35 @@ export interface InvitationInfo {
               </div>
             </div>
 
+            <!-- SSO_ONLY: sign in with the provider, then accept as that account -->
+            <div *ngIf="ssoOnly" class="accept-form">
+              <ng-container *ngIf="signedIn; else signInFirst">
+                <h3>Join the Organization</h3>
+                <p class="form-subtitle">
+                  You'll join as the account you're signed in with, which must be
+                  {{ invitationInfo.email }}.
+                </p>
+                <button mat-raised-button color="primary" type="button" class="full-width"
+                        [disabled]="accepting" (click)="acceptWithSso()">
+                  <mat-spinner diameter="20" *ngIf="accepting"></mat-spinner>
+                  <span *ngIf="!accepting">Join Organization</span>
+                </button>
+              </ng-container>
+              <ng-template #signInFirst>
+                <h3>Sign In to Accept</h3>
+                <p class="form-subtitle">
+                  Sign in with your organization account as {{ invitationInfo.email }}.
+                  You'll come back here to join.
+                </p>
+                <button mat-raised-button color="primary" type="button" class="full-width"
+                        (click)="signInToAccept()">
+                  Sign in to accept
+                </button>
+              </ng-template>
+            </div>
+
             <!-- New User Form -->
-            <form *ngIf="!invitationInfo.is_existing_user" [formGroup]="acceptForm" (ngSubmit)="acceptInvitation()" class="accept-form">
+            <form *ngIf="providersLoaded && !ssoOnly && !invitationInfo.is_existing_user" [formGroup]="acceptForm" (ngSubmit)="acceptInvitation()" class="accept-form">
               <h3>Create Your Account</h3>
               <p class="form-subtitle">Set a password to complete your registration</p>
               <mat-form-field appearance="outline" class="full-width">
@@ -108,7 +137,7 @@ export interface InvitationInfo {
             </form>
 
             <!-- Existing User Form -->
-            <form *ngIf="invitationInfo.is_existing_user" [formGroup]="existingUserForm" (ngSubmit)="acceptAsExistingUser()" class="accept-form">
+            <form *ngIf="providersLoaded && !ssoOnly && invitationInfo.is_existing_user" [formGroup]="existingUserForm" (ngSubmit)="acceptAsExistingUser()" class="accept-form">
               <h3>Confirm Your Identity</h3>
               <p class="form-subtitle">Enter your password to join the organization</p>
               <mat-form-field appearance="outline" class="full-width">
@@ -130,7 +159,9 @@ export interface InvitationInfo {
           <mat-icon color="primary">check_circle</mat-icon>
           <h2>Invitation Accepted!</h2>
           <p>{{ successMessage }}</p>
-          <button mat-raised-button color="primary" routerLink="/login">Go to Login</button>
+          <button mat-raised-button color="primary" [routerLink]="ssoOnly ? '/dashboard' : '/login'">
+            {{ ssoOnly ? 'Continue' : 'Go to Login' }}
+          </button>
         </div>
       </mat-card>
     </div>
@@ -167,8 +198,13 @@ export class HopAcceptInvitationComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private apiUrl = inject(HOP_API_URL);
   private cdr = inject(ChangeDetectorRef);
+  private authService = inject(HopAuthService);
+  private organizationService = inject(HopOrganizationService);
 
   token = '';
+  ssoOnly = false;
+  providersLoaded = false;
+  signedIn = false;
   invitationInfo: InvitationInfo | null = null;
   loading = true;
   error = '';
@@ -195,7 +231,44 @@ export class HopAcceptInvitationComponent implements OnInit {
       this.loading = false;
       return;
     }
+    this.signedIn = this.authService.isAuthenticated();
+    this.authService.getSSOProviders().subscribe({
+      next: providers => {
+        this.ssoOnly = providers.sso_only ?? false;
+        this.providersLoaded = true;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.providersLoaded = true;
+        this.cdr.markForCheck();
+      },
+    });
     this.loadInvitationInfo();
+  }
+
+  /** SSO_ONLY: send the invitee through the provider and back to this page. */
+  signInToAccept(): void {
+    this.router.navigate(['/login'], { queryParams: { returnUrl: `/invite/${this.token}` } });
+  }
+
+  /** SSO_ONLY: accept as the signed-in account (the server checks the email matches). */
+  acceptWithSso(): void {
+    if (this.accepting) return;
+    this.accepting = true;
+    this.organizationService.acceptInvitation(this.token).subscribe({
+      next: (response: any) => {
+        this.success = true;
+        this.successMessage = `${response.message || 'You have joined the organization'}. `
+          + 'Switch to it from the settings menu at the top right.';
+        this.accepting = false;
+        this.cdr.markForCheck();
+      },
+      error: error => {
+        this.accepting = false;
+        this.snackBar.open(error.error?.detail || 'Failed to join organization', 'Close', { duration: 5000 });
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   loadInvitationInfo(): void {

@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 from hop_core.db import get_db
+from hop_core.config import get_settings
 from hop_core.models.user import User
 from hop_core.api.dependencies import (
     get_current_active_user,
@@ -67,6 +68,18 @@ async def update_account(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
+    # Under SSO_ONLY the identity provider owns the credentials and the address:
+    # a password could not be used, and a self-chosen email would no longer be
+    # the one the provider vouched for (or within ALLOWED_EMAIL_DOMAINS).
+    if get_settings().sso_only and (
+        account_data.new_password
+        or (account_data.email and account_data.email != current_user.email)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your email and sign-in are managed by your SSO provider.",
+        )
+
     if account_data.new_password:
         if current_user.password_hash:
             if not account_data.current_password:

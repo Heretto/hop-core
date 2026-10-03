@@ -15,9 +15,9 @@ consistency comes for free and custom interactions never have to fight it.
 
 Requires **Angular 22 / Angular Material 22** and Node ≥ 22.22.3 or ≥ 24.15 (the theme
 uses the M3 `mat.theme()` API, the `--mat-sys-*` system-token bridge and the
-`--mat-*` component tokens Material 20+ reads). The components expect Zone.js
-change detection: they declare `ChangeDetectionStrategy.Eager` and are not yet
-zoneless-safe.
+`--mat-*` component tokens Material 20+ reads). The components work with or
+without Zone.js: from 0.1.9 they call `markForCheck()` after every HTTP callback,
+so zoneless apps render their state too.
 
 ## Using it
 
