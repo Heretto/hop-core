@@ -470,8 +470,8 @@ grep -n "include_object\|OUR_TABLES\|target_metadata" migrations/env.py
 
 **Why.** Your models and hop-core's share one declarative `Base`, so
 `target_metadata` covers `users`, `organizations`, `organization_members`,
-`organization_invitations`, `credentials`, `agents` and `agent_context_files`
-as well as your own. Unfiltered,
+`organization_invitations`, `credentials`, `agents`, `agent_context_files`,
+`url_access_logs` and `pending_email_verifications` as well as your own. Unfiltered,
 `alembic revision --autogenerate` writes migrations against hop-core's schema —
 measured on a real app, thirteen spurious `modify_type` operations, because
 hop-core's UUID columns reflect out of SQLite as `NUMERIC`. Those migrations
@@ -601,3 +601,41 @@ DITA, pass `include_dita_router=True` to `create_hop_app()` and install the
 other files or keys: only the backend can supply `DitaRenderer(loader=...,
 keys=keys_from_map(...))`, and the route reports unresolved references in
 `warnings` rather than failing.
+
+---
+
+## 11. Email verification
+
+**Check**
+
+```bash
+grep -n "REQUIRE_EMAIL_VERIFICATION\|SMTP_HOST\|SMTP_FROM_EMAIL\|FRONTEND_BASE_URL" .env
+grep -rn "verify-email\|HOP_ROUTES" src/                 # the link's landing route
+```
+
+**Why.** `REQUIRE_EMAIL_VERIFICATION=true` makes new password sign-ups confirm
+their address before they can log in: registration emails a link to
+`${FRONTEND_BASE_URL}/verify-email?token=…`, and login answers `403` with
+`"code": "email_not_verified"` until it is opened. Three things break it, two of
+them silently:
+
+- **No SMTP.** Outside `APP_ENV=development` the app refuses to start, since no
+  account could ever be verified. In development the link is logged instead of
+  sent, at WARNING, from `hop_core.email`.
+- **No `verify-email` route.** `HOP_ROUTES` includes it, but an app that lists
+  the hop-ui routes itself must add `HopVerifyEmailComponent` at `verify-email`.
+  Without it every emailed link lands on a 404 or the app's fallback route, and
+  nobody can finish signing up.
+- **Wrong `FRONTEND_BASE_URL`.** The link is built from it; the default
+  (`http://localhost:4200`) is only right for local development.
+
+**What it does not change.** Accounts that existed before the flag was turned on
+stay able to log in — pending state lives in its own
+`pending_email_verifications` table, created on startup, so turning the flag on
+needs no migration. SSO and invitation sign-ups are already verified (the
+provider or the invite link proved the inbox), and so is any account that
+completes a password reset. Turning the flag off lets pending accounts in.
+
+**Fix.** Set the flag, SMTP and `FRONTEND_BASE_URL` together, route
+`verify-email` to `HopVerifyEmailComponent`, then register a throwaway address
+on the deployed app and follow the link end to end.

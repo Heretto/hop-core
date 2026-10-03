@@ -19,6 +19,15 @@ export interface LoginResponse {
   organizations?: UserOrganizationInfo[];
 }
 
+export interface RegisterResponse {
+  id: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  /** True when the account cannot sign in until the emailed link is opened. */
+  email_verification_required: boolean;
+}
+
 export interface SSOProviders {
   google: boolean;
   microsoft: boolean;
@@ -89,10 +98,10 @@ export class HopAuthService {
     this.setAuthState(response.expires_at);
   }
 
-  register(email: string, password: string, organizationName?: string): Observable<any> {
+  register(email: string, password: string, organizationName?: string): Observable<RegisterResponse> {
     const payload: Record<string, string> = { email, password };
     if (organizationName) payload['organization_name'] = organizationName;
-    return this.http.post(`${this.apiUrl}/auth/register`, payload);
+    return this.http.post<RegisterResponse>(`${this.apiUrl}/auth/register`, payload);
   }
 
   logout(): void {
@@ -119,6 +128,14 @@ export class HopAuthService {
 
   forgotPassword(email: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/auth/forgot-password`, { email });
+  }
+
+  verifyEmail(token: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/verify-email`, { token });
+  }
+
+  resendVerification(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/resend-verification`, { email });
   }
 
   resetPassword(token: string, newPassword: string): Observable<{ message: string }> {

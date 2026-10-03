@@ -35,3 +35,6 @@ class User(Base):
     )
     current_organization = relationship("Organization", foreign_keys=[current_organization_id])
     credentials = relationship("Credential", back_populates="user", cascade="all, delete-orphan")
+    pending_email_verification = relationship(
+        "PendingEmailVerification", uselist=False, cascade="all, delete-orphan",
+    )

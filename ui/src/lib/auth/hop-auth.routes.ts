@@ -16,6 +16,10 @@ export const HOP_ROUTES: Routes = [
     loadComponent: () => import('./hop-reset-password.component').then(m => m.HopResetPasswordComponent),
   },
   {
+    path: 'verify-email',
+    loadComponent: () => import('./hop-verify-email.component').then(m => m.HopVerifyEmailComponent),
+  },
+  {
     path: 'auth/sso/complete',
     loadComponent: () => import('./hop-sso-callback.component').then(m => m.HopSSOCallbackComponent),
   },

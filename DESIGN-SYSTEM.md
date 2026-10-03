@@ -450,6 +450,7 @@ Everything importable from `@heretto/hop-ui`:
 | `HopLoginComponent` | `hop-login` | Login + registration, SSO (Google/Microsoft), org selection | — |
 | `HopForgotPasswordComponent` | `hop-forgot-password` | Request password-reset email | — |
 | `HopResetPasswordComponent` | `hop-reset-password` | Token-based password reset | — |
+| `HopVerifyEmailComponent` | `hop-verify-email` | Landing page for the email-verification link: confirms the address on load, then links to login. `HopLoginComponent` handles the rest ("check your inbox" after sign-up, resend on an unverified login) | `?token=` query param |
 | `HopSSOCallbackComponent` | `hop-sso-callback` | OAuth redirect completion | — |
 | `HopAcceptInvitationComponent` | `hop-accept-invitation` | Accept org invitation (`/invite/:token`) | — |
 | `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet | `appTitle: string`, `logoSrc?: string` (brand image, 36px tall, far left; with `appTitle` set the app name renders beside it after a thin divider — set `appTitle=""` for logo-only; without `logoSrc` the brand falls back to icon + name), `navItems: NavItem[]` |
@@ -506,6 +507,7 @@ interface OrganizationInvitation { id: string; organization_id: string; organiza
 interface AccountInfo { id: string; email: string; is_active: boolean; is_superuser: boolean; created_at: string; organization_role?: string; organization_id?: string; organization_name?: string; }
 interface AccountUpdate { email?: string; current_password?: string; new_password?: string; }
 interface UserOrganizationInfo { id: string; name: string; slug: string; role: string; }
+interface RegisterResponse { id: string; email: string; is_active: boolean; created_at: string; email_verification_required: boolean; }
 interface LoginResponse { access_token: string; refresh_token: string; token_type: string; expires_at?: number; organizations?: UserOrganizationInfo[]; }
 interface SSOProviders { google: boolean; microsoft: boolean; sso_only: boolean; single_org_mode: boolean; google_client_id?: string; }
 type CredentialFieldType = 'text' | 'password' | 'email' | 'url' | 'select' | 'textarea';
@@ -543,12 +545,14 @@ interface HopTableColumn<T = any> { key: string; label: string; sortable?: boole
 HopAuthService {
   currentUser$: Observable<...>;
   login(email, password): Observable<LoginResponse>;
-  register(email, password, organizationName?): Observable<any>;
+  register(email, password, organizationName?): Observable<RegisterResponse>;
   logout(): void;
   refreshToken(): Observable<LoginResponse>;
   isAuthenticated(): boolean;
   forgotPassword(email): Observable<{message}>;
   resetPassword(token, newPassword): Observable<{message}>;
+  verifyEmail(token): Observable<{message}>;
+  resendVerification(email): Observable<{message}>;
   getSSOProviders(): Observable<SSOProviders>;
   updateTokens(response): void;
   navigateToDashboard(returnUrl?): void;
@@ -616,7 +620,7 @@ HopCredentialService {
 | `hopSuperuserGuard` | `CanActivateFn` | Requires system superuser |
 | `hopAuthInterceptor` | `HttpInterceptorFn` | Attaches Bearer token, auto-refreshes on 401 |
 | `HOP_API_URL` | `InjectionToken<string>` | API base URL, defaults `/api/v1` — provide to override |
-| `HOP_ROUTES` | `Routes` | Prebuilt: `login`, `forgot-password`, `reset-password`, `auth/sso/complete`, `invite/:token`, `account` (auth-guarded), `admin` (auth+admin-guarded) |
+| `HOP_ROUTES` | `Routes` | Prebuilt: `login`, `forgot-password`, `reset-password`, `verify-email`, `auth/sso/complete`, `invite/:token`, `account` (auth-guarded), `admin` (auth+admin-guarded) |
 | `HOP_AGENT_ROUTES` | `Routes` | Agent pages — `''` (list), `new`, `:agentId`. Mount as `children` of any path; componentless, so they render in the existing outlet |
 
 ---
@@ -653,6 +657,7 @@ export const routes: Routes = [
   { path: 'login', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopLoginComponent) },
   { path: 'forgot-password', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopForgotPasswordComponent) },
   { path: 'reset-password', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopResetPasswordComponent) },
+  { path: 'verify-email', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopVerifyEmailComponent) },
   { path: 'auth/sso/complete', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopSSOCallbackComponent) },
   { path: 'invite/:token', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAcceptInvitationComponent) },
   {

@@ -29,6 +29,7 @@ A batteries-included platform library for building AI-powered content creation a
 | `HopLoginComponent` | Login form with SSO button support |
 | `HopForgotPasswordComponent` | Forgot-password request form |
 | `HopResetPasswordComponent` | Token-based password reset form |
+| `HopVerifyEmailComponent` | Landing page for the email-verification link (`/verify-email`) |
 | `HopAcceptInvitationComponent` | Invitation acceptance flow (new and existing users) |
 | `HopSsoCallbackComponent` | Handles OAuth redirect callbacks |
 | `HopAccountComponent` | Profile editor (email, password change) |
@@ -129,6 +130,9 @@ SSO_ONLY=false
 SINGLE_ORG_MODE=false
 SMTP_HOST=
 SMTP_FROM_EMAIL=
+FRONTEND_BASE_URL=http://localhost:4200
+REQUIRE_EMAIL_VERIFICATION=false   # password sign-ups must click an emailed link; needs SMTP (AGENTS.md §11)
+EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS=24
 GOOGLE_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_SECRET=
@@ -524,6 +528,8 @@ All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`
 | `POST` | `/auth/refresh` | — | Refresh access token |
 | `POST` | `/auth/forgot-password` | — | Send reset email |
 | `POST` | `/auth/reset-password` | — | Reset with token |
+| `POST` | `/auth/verify-email` | — | Confirm an address with the emailed token |
+| `POST` | `/auth/resend-verification` | — | Email a new verification link |
 | `GET` | `/sso/google` | — | Google SSO |
 | `GET` | `/sso/microsoft` | — | Microsoft SSO |
 | `GET` | `/account/me` | ✓ | Get profile |

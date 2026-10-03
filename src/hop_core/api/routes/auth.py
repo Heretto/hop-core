@@ -1,6 +1,8 @@
-"""Authentication routes: register, login, logout, refresh, password reset."""
+"""Authentication routes: register, login, logout, refresh, password reset,
+email verification."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from datetime import datetime, timedelta, timezone
@@ -13,15 +15,18 @@ from hop_core.config import get_settings
 from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationMember, user_organizations
 from hop_core.models.enums import OrganizationRole
+from hop_core.models.email_verification import PendingEmailVerification
 from hop_core.schemas.user import (
-    UserCreate, UserResponse, LoginRequest, UserOrganizationInfo,
+    UserCreate, RegisterResponse, LoginRequest, UserOrganizationInfo,
     ForgotPasswordRequest, ResetPasswordRequest,
+    VerifyEmailRequest, ResendVerificationRequest,
 )
 from hop_core.core.security import (
     verify_password, get_password_hash,
     create_access_token, create_refresh_token, decode_token,
     set_auth_cookies, clear_auth_cookies,
     create_password_reset_token, decode_password_reset_token,
+    create_email_verification_token, decode_email_verification_token,
 )
 from hop_core.core.exceptions import AuthenticationError
 from hop_core.core.rate_limit import limiter
@@ -36,7 +41,26 @@ def create_slug(name: str) -> str:
     return slug.strip('-')
 
 
-@router.post("/register", response_model=UserResponse)
+def _awaiting_verification(user: User) -> bool:
+    """True when the flag is on and this account has not confirmed its email.
+
+    Rows left over from a time the flag was on are ignored once it is off.
+    """
+    return get_settings().require_email_verification and user.pending_email_verification is not None
+
+
+async def _send_verification(user: User) -> None:
+    # A failed send is logged, not raised: the account exists either way, and
+    # the user can ask for a new link from the login page.
+    token = create_email_verification_token(str(user.id), user.email)
+    try:
+        from hop_core.email import send_verification_email
+        await send_verification_email(user.email, token)
+    except Exception:
+        logger.exception("Failed to send email verification link")
+
+
+@router.post("/register", response_model=RegisterResponse)
 @limiter.limit("20/minute")
 async def register(
     request: Request,
@@ -124,9 +148,17 @@ async def register(
         )
         db.add(membership)
 
+    if settings.require_email_verification:
+        db.add(PendingEmailVerification(user_id=new_user.id))
+
     db.commit()
     db.refresh(new_user)
-    return new_user
+
+    result = RegisterResponse.model_validate(new_user)
+    if settings.require_email_verification:
+        await _send_verification(new_user)
+        result.email_verification_required = True
+    return result
 
 
 @router.post("/login")
@@ -149,6 +181,17 @@ async def login(
 
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+
+    # Checked only after the password, so this does not reveal whether an
+    # address is registered. The code lets the UI offer to resend the link.
+    if _awaiting_verification(user):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "detail": "Please verify your email address before signing in.",
+                "code": "email_not_verified",
+            },
+        )
 
     stmt = select(user_organizations).where(user_organizations.c.user_id == user.id)
     user_orgs = db.execute(stmt).fetchall()
@@ -226,6 +269,12 @@ async def refresh_token_endpoint(
 
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+
+        if _awaiting_verification(user):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Email address not verified",
+            )
 
         token_data = {"sub": str(user.id), "email": user.email}
 
@@ -315,6 +364,51 @@ async def reset_password(
         )
 
     user.password_hash = get_password_hash(body.new_password)
+    # The reset link reached this inbox, which proves the address too.
+    user.pending_email_verification = None
     db.commit()
 
     return {"message": "Password has been reset successfully."}
+
+
+@router.post("/verify-email")
+@limiter.limit("10/minute")
+async def verify_email(
+    request: Request,
+    body: VerifyEmailRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        user_id, email = decode_email_verification_token(body.token)
+        user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
+    except (AuthenticationError, ValueError) as e:
+        detail = e.message if isinstance(e, AuthenticationError) else "Invalid verification link"
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+    if not user or user.email != email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification link",
+        )
+
+    # Idempotent: a second click on the same link still reports success.
+    user.pending_email_verification = None
+    db.commit()
+
+    return {"message": "Your email address has been verified. You can now sign in."}
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/minute")
+async def resend_verification(
+    request: Request,
+    body: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.email == body.email).first()
+    if user and user.is_active and _awaiting_verification(user):
+        await _send_verification(user)
+
+    # Same answer whatever the state of the address, so it cannot be used to
+    # discover which emails are registered.
+    return {"message": "If that account is awaiting verification, a new link has been sent."}

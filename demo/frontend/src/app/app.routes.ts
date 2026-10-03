@@ -16,6 +16,10 @@ export const routes: Routes = [
     loadComponent: () => import('@heretto/hop-ui').then(m => m.HopResetPasswordComponent),
   },
   {
+    path: 'verify-email',
+    loadComponent: () => import('@heretto/hop-ui').then(m => m.HopVerifyEmailComponent),
+  },
+  {
     path: 'auth/sso/complete',
     loadComponent: () => import('@heretto/hop-ui').then(m => m.HopSSOCallbackComponent),
   },

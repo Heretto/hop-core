@@ -25,6 +25,8 @@ _DEFAULT_EXEMPT_SUFFIXES = frozenset({
     "/auth/refresh",
     "/auth/forgot-password",
     "/auth/reset-password",
+    "/auth/verify-email",
+    "/auth/resend-verification",
 })
 
 

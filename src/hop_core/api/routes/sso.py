@@ -98,6 +98,13 @@ def _handle_sso_login(
     if user:
         user.oauth_provider = provider
         user.oauth_id = oauth_id
+        if user.pending_email_verification is not None:
+            # The provider vouches for this address; the password does not —
+            # nobody proved they own the inbox when it was set. Dropping it stops
+            # whoever registered the address first from keeping access to the
+            # real owner's account.
+            user.password_hash = None
+            user.pending_email_verification = None
         db.commit()
         return user
 

@@ -4,7 +4,7 @@ export { HOP_LOGO_SRC } from './lib/tokens/hop-logo-src.token';
 
 // Services
 export { HopAuthService } from './lib/auth/hop-auth.service';
-export type { UserOrganizationInfo, LoginResponse, SSOProviders } from './lib/auth/hop-auth.service';
+export type { UserOrganizationInfo, LoginResponse, RegisterResponse, SSOProviders } from './lib/auth/hop-auth.service';
 export { HopOrganizationService } from './lib/shared/hop-organization.service';
 export type { Organization, OrganizationMember, OrganizationInvitation } from './lib/shared/hop-organization.service';
 export { HopAccountService } from './lib/shared/hop-account.service';
@@ -36,6 +36,7 @@ export { HOP_AGENT_ROUTES } from './lib/agents/hop-agent.routes';
 export { HopLoginComponent } from './lib/auth/hop-login.component';
 export { HopForgotPasswordComponent } from './lib/auth/hop-forgot-password.component';
 export { HopResetPasswordComponent } from './lib/auth/hop-reset-password.component';
+export { HopVerifyEmailComponent } from './lib/auth/hop-verify-email.component';
 export { HopSSOCallbackComponent } from './lib/auth/hop-sso-callback.component';
 export { HopAcceptInvitationComponent } from './lib/auth/hop-accept-invitation.component';
 export { HopMainLayoutComponent } from './lib/layout/hop-main-layout.component';

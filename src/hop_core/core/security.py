@@ -4,7 +4,7 @@ All settings access is lazy — no module-level get_settings() calls.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import secrets
 import ipaddress
 import socket
@@ -128,6 +128,34 @@ def decode_password_reset_token(token: str) -> str:
         raise AuthenticationError("Password reset link has expired")
     except jwt.PyJWTError:
         raise AuthenticationError("Invalid password reset token")
+
+
+def create_email_verification_token(user_id: str, email: str) -> str:
+    from hop_core.config import get_settings
+    settings = get_settings()
+    expire = datetime.now(timezone.utc) + timedelta(hours=settings.email_verification_token_expire_hours)
+    # The address is bound into the token so a link sent to an old address
+    # stops working once the account's email changes.
+    to_encode = {"sub": user_id, "email": email, "type": "email_verification", "exp": expire}
+    secret, algorithm = _get_jwt_settings()
+    return jwt.encode(to_encode, secret, algorithm=algorithm)
+
+
+def decode_email_verification_token(token: str) -> Tuple[str, str]:
+    """Return (user_id, email) from a verification token."""
+    try:
+        secret, algorithm = _get_jwt_settings()
+        payload = jwt.decode(token, secret, algorithms=[algorithm])
+        if payload.get("type") != "email_verification":
+            raise AuthenticationError("Invalid token type")
+        user_id, email = payload.get("sub"), payload.get("email")
+        if not user_id or not email:
+            raise AuthenticationError("Invalid token")
+        return user_id, email
+    except jwt.ExpiredSignatureError:
+        raise AuthenticationError("Verification link has expired")
+    except jwt.PyJWTError:
+        raise AuthenticationError("Invalid verification link")
 
 
 def generate_csrf_token() -> str:

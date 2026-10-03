@@ -55,3 +55,16 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
+
+
+class RegisterResponse(UserResponse):
+    # True when the account cannot log in until the emailed link is clicked.
+    email_verification_required: bool = False
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr

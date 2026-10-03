@@ -41,6 +41,13 @@ class HopCoreSettings(BaseSettings):
     password_reset_token_expire_minutes: int = 30
     frontend_base_url: str = "http://localhost:4200"
 
+    # Email verification. When on, password sign-ups must click an emailed link
+    # before they can log in. Requires SMTP outside development (where the link
+    # is logged instead). Accounts that existed before the flag was turned on,
+    # and SSO and invitation sign-ups, are already considered verified.
+    require_email_verification: bool = False
+    email_verification_token_expire_hours: int = 24
+
     @property
     def smtp_configured(self) -> bool:
         return bool(self.smtp_host and self.smtp_from_email)

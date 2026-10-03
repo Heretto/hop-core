@@ -55,6 +55,15 @@ def create_hop_app(
     configure(settings_factory)
     settings = get_settings()
 
+    # Without SMTP no sign-up could ever be verified, so every new account would
+    # be locked out. Development logs the links instead (see hop_core.email).
+    if settings.require_email_verification and not settings.smtp_configured \
+            and settings.app_env != "development":
+        raise RuntimeError(
+            "REQUIRE_EMAIL_VERIFICATION is on but SMTP is not configured "
+            "(SMTP_HOST and SMTP_FROM_EMAIL). New accounts could never be verified."
+        )
+
     init_engine(settings.database_url, echo=settings.app_debug)
 
     setup_logging(

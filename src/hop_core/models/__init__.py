@@ -6,6 +6,7 @@ from hop_core.models.organization import Organization, OrganizationMember, Organ
 from hop_core.models.credential import Credential
 from hop_core.models.agent import Agent, AgentContextFile
 from hop_core.models.url_access_log import UrlAccessLog
+from hop_core.models.email_verification import PendingEmailVerification
 
 __all__ = [
     "OrganizationRole",
@@ -18,4 +19,5 @@ __all__ = [
     "Agent",
     "AgentContextFile",
     "UrlAccessLog",
+    "PendingEmailVerification",
 ]

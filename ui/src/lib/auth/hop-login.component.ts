@@ -107,6 +107,25 @@ import { HOP_API_URL } from '../tokens/hop-api-url.token';
 
             <div class="error-message" *ngIf="errorMessage">{{ errorMessage }}</div>
 
+            <div class="verify-notice" *ngIf="verificationEmail" role="status">
+              <mat-icon>mark_email_unread</mat-icon>
+              <div>
+                <p *ngIf="verificationJustSent">
+                  We sent a verification link to <strong>{{ verificationEmail }}</strong>.
+                  Open it to activate your account, then sign in here.
+                </p>
+                <p *ngIf="!verificationJustSent">
+                  <strong>{{ verificationEmail }}</strong> hasn't been verified yet. Open the
+                  link we emailed you, then sign in again.
+                </p>
+                <p class="resend-status" *ngIf="resendMessage">{{ resendMessage }}</p>
+                <button mat-button type="button" class="resend-btn"
+                        [disabled]="resending" (click)="resendVerification()">
+                  {{ resending ? 'Sending…' : 'Resend link' }}
+                </button>
+              </div>
+            </div>
+
             <div class="button-row">
               <button mat-raised-button color="primary" type="submit"
                       [disabled]="!loginForm.valid || loading">
@@ -138,6 +157,19 @@ import { HOP_API_URL } from '../tokens/hop-api-url.token';
     .full-width { width: 100%; }
     .button-row { display: flex; justify-content: space-between; margin-top: 20px; }
     .error-message { color: var(--color-error); margin-bottom: 15px; text-align: center; }
+    .verify-notice {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      background: var(--color-info-bg);
+      color: var(--color-info-text);
+    }
+    .verify-notice mat-icon { flex: none; color: var(--color-info); }
+    .verify-notice p { margin: 0 0 4px; font-size: 14px; color: inherit; }
+    .verify-notice .resend-status { color: var(--text-secondary); }
+    .resend-btn { margin-left: -12px; }
     mat-spinner { display: inline-block; margin-right: 10px; }
     .org-select-hint { color: var(--text-secondary); margin-bottom: 8px; }
     .org-list-item { cursor: pointer; }
@@ -173,6 +205,11 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
   errorMessage = '';
   isRegisterMode = false;
   showOrgSelection = false;
+  /** Set while an account must confirm its address before it can sign in. */
+  verificationEmail: string | null = null;
+  verificationJustSent = false;
+  resending = false;
+  resendMessage = '';
   userOrganizations: UserOrganizationInfo[] = [];
 
   googleEnabled = false;
@@ -279,13 +316,18 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
     if (!this.loginForm.valid) return;
     this.loading = true;
     this.errorMessage = '';
+    this.clearVerificationNotice();
     const { organizationName, email, password } = this.loginForm.value;
 
     if (this.isRegisterMode) {
       this.authService.register(email, password, organizationName).subscribe({
-        next: () => {
+        next: res => {
           this.isRegisterMode = false;
-          this.errorMessage = 'Account created! Please login.';
+          if (res.email_verification_required) {
+            this.showVerificationNotice(email, true);
+          } else {
+            this.errorMessage = 'Account created! Please login.';
+          }
           this.loading = false;
           this.cdr.markForCheck();
         },
@@ -309,7 +351,11 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
           this.cdr.markForCheck();
         },
         error: error => {
-          this.errorMessage = error.error?.detail || 'Login failed';
+          if (error.error?.code === 'email_not_verified') {
+            this.showVerificationNotice(email, false);
+          } else {
+            this.errorMessage = error.error?.detail || 'Login failed';
+          }
           this.loading = false;
           this.cdr.markForCheck();
         },
@@ -335,9 +381,40 @@ export class HopLoginComponent implements OnInit, AfterViewInit {
     });
   }
 
+  resendVerification(): void {
+    if (!this.verificationEmail) return;
+    this.resending = true;
+    this.resendMessage = '';
+    this.authService.resendVerification(this.verificationEmail).subscribe({
+      next: () => {
+        this.resendMessage = 'A new link is on its way. Check your inbox.';
+        this.resending = false;
+        this.cdr.markForCheck();
+      },
+      error: err => {
+        this.resendMessage = err.status === 429
+          ? 'Please wait a minute before asking for another link.'
+          : 'Could not send a new link. Please try again.';
+        this.resending = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private showVerificationNotice(email: string, justSent: boolean): void {
+    this.verificationEmail = email;
+    this.verificationJustSent = justSent;
+  }
+
+  private clearVerificationNotice(): void {
+    this.verificationEmail = null;
+    this.resendMessage = '';
+  }
+
   switchToRegister(): void {
     this.isRegisterMode = !this.isRegisterMode;
     this.errorMessage = '';
+    this.clearVerificationNotice();
     const orgNameControl = this.loginForm.get('organizationName');
     if (this.isRegisterMode && !this.singleOrgMode) {
       orgNameControl?.setValidators([Validators.required]);
