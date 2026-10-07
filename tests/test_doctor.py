@@ -17,6 +17,7 @@ from hop_core.doctor.checks import (
     check_python_dependency,
     check_required_settings,
     check_theme_import,
+    check_zoneless,
 )
 
 CSP_STRICT = 'add_header Content-Security-Policy "default-src \'self\'; style-src \'self\' \'unsafe-inline\'";'
@@ -312,3 +313,124 @@ class TestCli:
     def test_every_check_runs(self, tmp_path):
         ids = {f.check.split(".", 1)[0] for f in run_checks(discover(tmp_path))}
         assert ids == {"deps", "frontend", "docker", "settings", "docs"}
+
+
+def zoneless_app(tmp_path, *, polyfills=None, test_polyfills=None, angular="^22.2.0",
+                 locked_angular=None, hop_ui="0.1.8", files=None):
+    """A frontend at tmp_path. polyfills=None leaves the key out, as Angular 21+ does."""
+    build = {"options": {}}
+    if polyfills is not None:
+        build["options"]["polyfills"] = polyfills
+    targets = {"build": build}
+    if test_polyfills is not None:
+        targets["test"] = {"options": {"polyfills": test_polyfills}}
+    write(tmp_path / "angular.json", json.dumps({"projects": {"app": {"architect": targets}}}))
+    deps = {"@heretto/hop-ui": hop_ui or "*"}
+    if angular:
+        deps["@angular/core"] = angular
+    write(tmp_path / "package.json", json.dumps({"dependencies": deps}))
+    packages = {"": {}}
+    if hop_ui:
+        packages["node_modules/@heretto/hop-ui"] = {"version": hop_ui}
+    if locked_angular:
+        packages["node_modules/@angular/core"] = {"version": locked_angular}
+    write(tmp_path / "package-lock.json", json.dumps({"lockfileVersion": 3, "packages": packages}))
+    write(tmp_path / "src/main.ts", "bootstrapApplication(App, appConfig);\n")
+    for rel, text in (files or {}).items():
+        write(tmp_path / rel, text)
+    return only(check_zoneless(discover(tmp_path)))
+
+
+ZONE_PROVIDER = {"src/app/app.config.ts": "providers: [provideZoneChangeDetection(), provideRouter(routes)]"}
+
+
+class TestZoneless:
+    # The reported bug: a new Angular 21+ app is zoneless without saying so.
+    def test_angular_22_cli_app_with_no_zone_signals_is_zoneless(self, tmp_path):
+        f = zoneless_app(tmp_path)
+        assert f.severity == Severity.FAIL
+        assert "running zoneless" in f.summary
+
+    def test_angular_22_cli_app_with_zoneless_safe_hop_ui_passes(self, tmp_path):
+        f = zoneless_app(tmp_path, hop_ui="0.1.10")
+        assert f.severity == Severity.PASS
+        assert "running zoneless" in f.summary
+        assert "Zone.js change detection is active" not in f.summary
+
+    def test_zone_polyfill_without_provider_is_still_zoneless_on_angular_21(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular="^21.0.0")
+        assert f.severity == Severity.FAIL
+        assert "defaults to zoneless" in f.detail
+
+    def test_zone_polyfill_and_provider_is_zone(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], files=ZONE_PROVIDER)
+        assert f.severity == Severity.PASS
+        assert "Zone.js change detection is active" in f.summary
+
+    def test_angular_20_zone_polyfill_without_provider_is_zone(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular="^20.3.0")
+        assert f.severity == Severity.PASS
+        assert "Zone.js change detection is active" in f.summary
+
+    def test_installed_version_wins_over_the_package_json_range(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular="^20.0.0", locked_angular="21.2.0")
+        assert f.severity == Severity.FAIL
+
+    def test_explicit_zoneless_provider(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular="^19.0.0", files={
+            "src/app/app.config.ts": "providers: [provideZonelessChangeDetection()]",
+        })
+        assert f.severity == Severity.FAIL
+        assert "provideZonelessChangeDetection" in f.detail
+
+    def test_noop_ng_zone_is_zoneless(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular="^19.0.0", files={
+            "src/main.ts": "platformBrowser().bootstrapModule(AppModule, { ngZone: 'noop' });",
+        })
+        assert f.severity == Severity.FAIL
+
+    # Signals that must not count.
+    def test_spec_files_are_ignored(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular="^19.0.0", files={
+            "src/app/app.spec.ts": "TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });",
+        })
+        assert f.severity == Severity.PASS
+        assert "Zone.js change detection is active" in f.summary
+
+    def test_test_target_polyfills_are_ignored(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], test_polyfills=["zone.js/testing"],
+                         angular="^19.0.0")
+        assert "Zone.js change detection is active" in f.summary
+
+    def test_polyfills_file_that_imports_zone(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["src/polyfills.ts"], angular="^16.0.0", files={
+            "src/polyfills.ts": "import 'zone.js';  // Included with Angular CLI.\n",
+        })
+        assert "Zone.js change detection is active" in f.summary
+
+    def test_zone_imported_from_main(self, tmp_path):
+        f = zoneless_app(tmp_path, angular="^19.0.0", files={
+            "src/main.ts": "import 'zone.js';\nbootstrapApplication(App);\n",
+        })
+        assert "Zone.js change detection is active" in f.summary
+
+    def test_string_polyfills_value(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills="zone.js", angular="^19.0.0")
+        assert "Zone.js change detection is active" in f.summary
+
+    # Undetermined.
+    def test_unknown_angular_version_warns_for_old_hop_ui(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular=None)
+        assert f.severity == Severity.WARN
+        assert "Could not tell" in f.summary
+
+    def test_unknown_angular_version_passes_for_zoneless_safe_hop_ui(self, tmp_path):
+        f = zoneless_app(tmp_path, polyfills=["zone.js"], angular=None, hop_ui="0.1.10")
+        assert f.severity == Severity.PASS
+
+    def test_unknown_hop_ui_version_warns(self, tmp_path):
+        f = zoneless_app(tmp_path, hop_ui=None)
+        assert f.severity == Severity.WARN
+
+    def test_no_frontend_skips(self, tmp_path):
+        assert only(check_zoneless(discover(tmp_path))).severity == Severity.SKIP
