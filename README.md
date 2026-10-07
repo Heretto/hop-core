@@ -126,7 +126,9 @@ def get_settings() -> AppSettings:
 CORS_ORIGINS=http://localhost:4200
 COOKIE_SECURE=false
 SSO_ONLY=false          # true (preferred in production): SSO is the only way in; password sign-in, reset and sign-up are refused (AGENTS.md §11)
-SINGLE_ORG_MODE=false
+SINGLE_ORG_MODE=false   # true: every new user joins SINGLE_ORG_SLUG, created on first sign-up; first member is admin
+SINGLE_ORG_SLUG=
+SINGLE_ORG_NAME=        # display name when the org is created; defaults to the slug in title case
 SMTP_HOST=
 SMTP_FROM_EMAIL=
 GOOGLE_OAUTH_CLIENT_ID=

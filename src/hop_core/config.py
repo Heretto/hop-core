@@ -53,9 +53,14 @@ class HopCoreSettings(BaseSettings):
     microsoft_oauth_tenant_id: str = "common"
     oauth_redirect_base_url: Optional[str] = None
 
-    # Single-organization mode
+    # Single-organization mode: every new account joins the organization with
+    # this slug. It is created on first sign-up if the database has none, and
+    # the first person to join becomes its admin.
     single_org_mode: bool = False
     single_org_slug: Optional[str] = None
+    # Display name used only when the organization is created; defaults to the
+    # slug in title case ("acme-corp" -> "Acme Corp").
+    single_org_name: Optional[str] = None
     allowed_email_domains: Optional[str] = None
 
     @property

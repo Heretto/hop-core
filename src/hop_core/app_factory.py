@@ -55,6 +55,10 @@ def create_hop_app(
     configure(settings_factory)
     settings = get_settings()
 
+    # Caught here rather than as a 500 on the first person to sign up.
+    if settings.single_org_mode and not (settings.single_org_slug or "").strip():
+        raise RuntimeError("SINGLE_ORG_MODE is on but SINGLE_ORG_SLUG is not set.")
+
     init_engine(settings.database_url, echo=settings.app_debug)
 
     setup_logging(
