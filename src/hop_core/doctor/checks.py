@@ -623,67 +623,141 @@ def _is_git_ignored(path: Path, root: Path) -> bool:
 # frontend.zoneless
 
 
+_ZONELESS_DEFAULT_MAJOR = 21  # Angular 21 bootstraps zoneless unless told otherwise
+
+
+def _angular_major(frontend: Path) -> int | None:
+    """Installed @angular/core major, else the one package.json asks for."""
+    lock = _load_json(frontend / "package-lock.json") or {}
+    version = ((lock.get("packages") or {}).get("node_modules/@angular/core") or {}).get("version")
+    if not version:
+        pkg = _load_json(frontend / "package.json") or {}
+        version = (pkg.get("dependencies") or {}).get("@angular/core")
+    match = re.search(r"\d+", version or "")
+    return int(match.group()) if match else None
+
+
+def _app_sources(frontend: Path) -> list[tuple[Path, str]]:
+    """Application TypeScript under src/, without tests: the CLI's generated
+    app.spec.ts provides zoneless change detection whatever the app does."""
+    src = frontend / "src"
+    if not src.is_dir():
+        return []
+    out = []
+    for ts_path in sorted(src.rglob("*.ts")):
+        if ts_path.name.endswith(".spec.ts"):
+            continue
+        text = _read(ts_path)
+        if text:
+            out.append((ts_path, text))
+    return out
+
+
+_ZONE_IMPORT = re.compile(r"""import\s+['"]zone\.js['"]""")
+
+
+def _zone_js_loaded(frontend: Path, ng: dict | None, sources) -> tuple[bool | None, str]:
+    """Whether the browser build loads zone.js, and the evidence.
+
+    Only the build target counts — test polyfills never reach the running app.
+    A polyfill entry may be a file (older apps list src/polyfills.ts) that in
+    turn imports zone.js.
+    """
+    for ts_path, text in sources:
+        if _ZONE_IMPORT.search(text):
+            return True, f"{_loc(ts_path, frontend)} imports zone.js"
+    if ng is None:
+        return None, "angular.json could not be read"
+    for name, proj in (ng.get("projects") or {}).items():
+        targets = proj.get("architect") or proj.get("targets") or {}
+        polyfills = ((targets.get("build") or {}).get("options") or {}).get("polyfills") or []
+        if isinstance(polyfills, str):
+            polyfills = [polyfills]
+        for entry in polyfills:
+            if entry.startswith("zone.js"):
+                return True, f"zone.js is in the build polyfills of '{name}'"
+            if entry.endswith(".ts") and _ZONE_IMPORT.search(_read(frontend / entry) or ""):
+                return True, f"{entry} (a build polyfill of '{name}') imports zone.js"
+    return False, "zone.js is not in the build polyfills or imported by the app"
+
+
+def _change_detection(project: Project) -> tuple[str, list[str]]:
+    """Return ("zoneless" | "zone" | "unknown", evidence).
+
+    Angular runs zoneless when the app asks for it, when zone.js is never
+    loaded, or — from Angular 21, whose bootstrap installs zoneless change
+    detection by default — when nothing calls provideZoneChangeDetection().
+    """
+    frontend = project.frontend
+    ng = _load_json(frontend / "angular.json")
+    sources = _app_sources(frontend)
+
+    def _call(name: str) -> str | None:
+        for ts_path, text in sources:
+            if name in text:
+                return f"{_loc(ts_path, project.root, _line_of(text, name))} calls {name}()"
+        return None
+
+    explicit_zoneless = _call("provideZonelessChangeDetection")
+    if explicit_zoneless:
+        return "zoneless", [explicit_zoneless]
+    for ts_path, text in sources:
+        if re.search(r"""ngZone\s*:\s*['"]noop['"]""", text):
+            return "zoneless", [f"{_loc(ts_path, project.root)} bootstraps with ngZone: 'noop'"]
+
+    loaded, why = _zone_js_loaded(frontend, ng, sources)
+    if loaded is False:
+        return "zoneless", [why]
+
+    explicit_zone = _call("provideZoneChangeDetection")
+    if loaded and explicit_zone:
+        return "zone", [why, explicit_zone]
+
+    major = _angular_major(frontend)
+    if loaded and major is not None:
+        if major >= _ZONELESS_DEFAULT_MAJOR:
+            return "zoneless", [
+                why,
+                f"but Angular {major} defaults to zoneless and nothing calls provideZoneChangeDetection()",
+            ]
+        return "zone", [why, f"Angular {major} defaults to Zone.js change detection"]
+    return "unknown", [why] + ([] if major is not None else ["the Angular version could not be determined"])
+
+
 def check_zoneless(project: Project) -> list[Finding]:
     """Detect Angular zoneless mode and verify the hop-ui version supports it.
 
-    hop-ui components before 0.1.8 relied on Zone.js to trigger change
+    hop-ui components before 0.1.9 relied on Zone.js to trigger change
     detection after HTTP responses. In a zoneless app, state mutated in
     subscribe() callbacks never renders until the next user interaction.
-    hop-ui 0.1.8+ calls ChangeDetectorRef.markForCheck() in every callback,
+    hop-ui 0.1.9+ calls ChangeDetectorRef.markForCheck() in every callback,
     which notifies Angular's own scheduler and works in both zoned and
     zoneless apps.
+
+    New Angular 21+ apps are zoneless without saying so anywhere — no zone.js
+    polyfill and no provideZonelessChangeDetection() — so the absence of
+    zone.js signals is itself the evidence.
     """
     cid = "frontend.zoneless"
     if project.frontend is None:
         return [Finding(cid, Severity.SKIP, "no frontend directory detected")]
 
-    # Detect zoneless via polyfills in angular.json --------------------------
     ng_path = project.frontend / "angular.json"
     ng = _load_json(ng_path)
-    zoneless_signals: list[str] = []
+    mode, evidence = _change_detection(project)
 
-    if ng is not None:
-        # angular.json polyfills can be a list or a string; zone.js absence signals zoneless
-        try:
-            projects = ng.get("projects", {})
-            for proj in projects.values():
-                for config_name in ("build", "test"):
-                    options = (
-                        proj.get("architect", {})
-                        .get(config_name, {})
-                        .get("options", {})
-                    )
-                    polyfills = options.get("polyfills", [])
-                    if isinstance(polyfills, str):
-                        polyfills = [polyfills]
-                    if polyfills and not any("zone.js" in p for p in polyfills):
-                        zoneless_signals.append(f"zone.js absent from {config_name} polyfills in angular.json")
-        except (AttributeError, TypeError):
-            pass
-
-    # Detect provideZonelessChangeDetection in source -------------------------
-    src = project.frontend / "src"
-    if src.is_dir():
-        for ts_path in src.rglob("*.ts"):
-            text = _read(ts_path)
-            if text and "ZonelessChangeDetection" in text:
-                line = _line_of(text, "ZonelessChangeDetection")
-                zoneless_signals.append(
-                    _loc(ts_path, project.root, line)
-                    + " — provideZonelessChangeDetection detected"
-                )
-                break
-
-    if not zoneless_signals:
+    if mode == "zone":
         return [
             Finding(
                 cid,
                 Severity.PASS,
-                "Zone.js is present; zoneless compatibility is not required",
+                "Zone.js change detection is active; zoneless compatibility is not required",
+                "Detected: " + "; ".join(evidence),
+                location=_loc(ng_path, project.root) if ng else None,
             )
         ]
 
-    # Zoneless detected — check the hop-ui version ---------------------------
+    # Zoneless, or undetermined: either way the hop-ui version decides ----------
     pkg_lock = _load_json(project.frontend / "package-lock.json")
     hop_ui_version: str | None = None
     if pkg_lock:
@@ -691,7 +765,7 @@ def check_zoneless(project: Project) -> list[Finding]:
             # lockfileVersion 3 shape
             pkgs = pkg_lock.get("packages", {})
             for key, val in pkgs.items():
-                if "@heretto/hop-ui" in key and isinstance(val, dict):
+                if key.endswith("node_modules/@heretto/hop-ui") and isinstance(val, dict):
                     hop_ui_version = val.get("version")
                     break
         except (AttributeError, TypeError):
@@ -703,15 +777,31 @@ def check_zoneless(project: Project) -> list[Finding]:
         except ValueError:
             return (0,)
 
-    signals_text = "; ".join(zoneless_signals)
+    detected = "Detected: " + "; ".join(evidence)
+    state = (
+        "Angular is running zoneless" if mode == "zoneless"
+        else "Could not tell whether Angular runs zoneless"
+    )
+    safe = hop_ui_version is not None and _version_tuple(hop_ui_version) >= _version_tuple("0.1.9")
+
+    if safe:
+        return [
+            Finding(
+                cid,
+                Severity.PASS,
+                f"{state}; @heretto/hop-ui {hop_ui_version} is zoneless-safe either way",
+                detected,
+                location=_loc(ng_path, project.root) if ng else None,
+            )
+        ]
 
     if hop_ui_version is None:
         return [
             Finding(
                 cid,
                 Severity.WARN,
-                "Angular is running zoneless but the @heretto/hop-ui version could not be determined",
-                f"Detected: {signals_text}\n"
+                f"{state} and the @heretto/hop-ui version could not be determined",
+                f"{detected}\n"
                 "hop-ui components before 0.1.9 do not work correctly in zoneless apps:\n"
                 "state set in HTTP callbacks never renders until the next user interaction.\n"
                 "hop-ui 0.1.9+ is zoneless-safe.",
@@ -720,30 +810,33 @@ def check_zoneless(project: Project) -> list[Finding]:
             )
         ]
 
-    if _version_tuple(hop_ui_version) < _version_tuple("0.1.9"):
+    explanation = (
+        "hop-ui components before 0.1.9 rely on Zone.js to trigger change\n"
+        "detection after HTTP responses. Without it, pages like Agents and\n"
+        "Credentials load their data but do not redraw until the next user\n"
+        "interaction (a click, a keypress, anything).\n"
+        "hop-ui 0.1.9+ calls ChangeDetectorRef.markForCheck() in every\n"
+        "HTTP callback, which works in both zoned and zoneless apps."
+    )
+    if mode == "unknown":
         return [
             Finding(
                 cid,
-                Severity.FAIL,
-                f"Angular is running zoneless but @heretto/hop-ui {hop_ui_version} is not zoneless-safe",
-                f"Detected: {signals_text}\n"
-                "hop-ui components before 0.1.9 rely on Zone.js to trigger change\n"
-                "detection after HTTP responses. Without it, pages like Agents and\n"
-                "Credentials load their data but do not redraw until the next user\n"
-                "interaction (a click, a keypress, anything).\n"
-                "hop-ui 0.1.9+ calls ChangeDetectorRef.markForCheck() in every\n"
-                "HTTP callback, which works in both zoned and zoneless apps.",
-                "Upgrade @heretto/hop-ui to >= 0.1.9.",
+                Severity.WARN,
+                f"{state}, and @heretto/hop-ui {hop_ui_version} is not zoneless-safe",
+                f"{detected}\n{explanation}",
+                "Upgrade @heretto/hop-ui to >= 0.1.9 so it no longer matters.",
                 _loc(project.frontend / "package-lock.json", project.root),
             )
         ]
-
     return [
         Finding(
             cid,
-            Severity.PASS,
-            f"Angular is running zoneless and @heretto/hop-ui {hop_ui_version} is zoneless-safe",
-            location=_loc(ng_path, project.root) if ng else None,
+            Severity.FAIL,
+            f"{state} but @heretto/hop-ui {hop_ui_version} is not zoneless-safe",
+            f"{detected}\n{explanation}",
+            "Upgrade @heretto/hop-ui to >= 0.1.9.",
+            _loc(project.frontend / "package-lock.json", project.root),
         )
     ]
 
