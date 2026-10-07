@@ -125,13 +125,20 @@ def get_settings() -> AppSettings:
 ```env
 CORS_ORIGINS=http://localhost:4200
 COOKIE_SECURE=false
-SSO_ONLY=false          # true (preferred in production): SSO is the only way in; password sign-in, reset and sign-up are refused (AGENTS.md §11)
-SINGLE_ORG_MODE=false
 SMTP_HOST=
 SMTP_FROM_EMAIL=
+
+# Sign-in and organizations: see "Authentication modes" below
+SSO_ONLY=false          # true (preferred in production): SSO is the only way in
 GOOGLE_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_ID=
 MICROSOFT_OAUTH_CLIENT_SECRET=
+MICROSOFT_OAUTH_TENANT_ID=common
+OAUTH_REDIRECT_BASE_URL=   # defaults to the first CORS_ORIGINS entry
+ALLOWED_EMAIL_DOMAINS=     # comma-separated; limits who can create an account
+SINGLE_ORG_MODE=false   # true: every new user joins one organization
+SINGLE_ORG_SLUG=
+SINGLE_ORG_NAME=        # defaults to the slug in title case
 ```
 
 ### 3. Create the app
@@ -246,6 +253,130 @@ humans and AI coding agents, so nothing requires scanning the source.
 [`ui/README.md`](ui/README.md) is the shorter orientation doc.
 
 ---
+
+## Authentication modes
+
+By default anyone can create an account with an email and password, and each
+new account gets its own organization. Two settings change that, and they are
+often used together.
+
+### SSO only (recommended for production)
+
+`SSO_ONLY=true` makes your identity provider the only way in, so sign-in,
+password policy and offboarding stay with the organization's provider instead
+of living in each app. With it on:
+
+- The backend refuses (403) everything that signs in with or sets a password:
+  sign-up, login, forgot/reset password, password-based invitation acceptance,
+  and password or email changes on `PUT /account/me`.
+- The hop-ui login page shows only the provider buttons, the invitation page
+  sends invitees through SSO and back before they join, and the account page
+  says the email and sign-in are managed by the provider.
+
+**1. Configure at least one provider.** With none configured, nobody can sign in.
+
+*Google* — sign-in happens in the browser and the backend verifies the ID token,
+so there is no client secret. Accounts whose Google email is not verified are
+refused.
+
+```env
+GOOGLE_OAUTH_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+```
+
+In Google Cloud Console, add your frontend's origin (e.g.
+`https://app.example.com`) to the OAuth client's **Authorized JavaScript origins**.
+
+*Microsoft (Entra ID)* — a server-side redirect flow.
+
+```env
+MICROSOFT_OAUTH_CLIENT_ID=00000000-0000-0000-0000-000000000000
+MICROSOFT_OAUTH_CLIENT_SECRET=...
+MICROSOFT_OAUTH_TENANT_ID=00000000-0000-0000-0000-000000000000
+OAUTH_REDIRECT_BASE_URL=https://app.example.com
+```
+
+In the app registration, add the redirect URI
+`{OAUTH_REDIRECT_BASE_URL}/api/v1/auth/sso/microsoft/callback`. The base URL is
+your frontend's public origin (it defaults to the first `CORS_ORIGINS` entry),
+so the frontend must route `/api` to the backend.
+
+> **Set your own tenant ID.** The default, `common`, accepts any Microsoft
+> account. When a token has no `email` claim the callback falls back to
+> `preferred_username`, which is not a verified address in a multi-tenant
+> sign-in, and accounts are matched by email — so with `common` someone could
+> sign in as an existing user.
+
+**2. Optionally limit who can create an account:**
+
+```env
+ALLOWED_EMAIL_DOMAINS=example.com,example.org
+```
+
+This applies to first-time sign-ins; existing accounts are unaffected.
+
+**3. Turn it on:**
+
+```env
+SSO_ONLY=true
+```
+
+Then check `GET /api/v1/auth/sso/providers` reports `"sso_only": true` and at
+least one provider as `true`, and sign in through SSO on the deployed app as an
+existing admin before telling anyone else.
+
+**Moving an existing app over.** Existing password users keep their account by
+signing in through SSO with the same email: the identity is linked, not
+duplicated. Check every administrator has an identity at the provider first —
+anyone who doesn't is locked out. Open password sessions end at their next token
+refresh (within 15 minutes) for accounts that have never signed in through SSO.
+
+**Invitations** still work: the invitee signs in through SSO and then joins, as
+long as the signed-in email matches the invitation.
+
+### Single organization
+
+`SINGLE_ORG_MODE=true` puts every new account in one organization instead of
+creating one per user — for an app that serves a single company or team.
+
+```env
+SINGLE_ORG_MODE=true
+SINGLE_ORG_SLUG=acme
+SINGLE_ORG_NAME=Acme Corporation   # optional
+```
+
+- **Fresh installs need no setup.** If no organization has `SINGLE_ORG_SLUG`, the
+  first sign-up creates it, named `SINGLE_ORG_NAME` or the slug in title case
+  (`acme-corp` → "Acme Corp"). An existing organization with that slug is used
+  as is.
+- **The first person to join becomes its admin**; everyone after joins as a
+  member. On a fresh install, sign in yourself before opening the app up, or
+  limit sign-ups with `SSO_ONLY` and `ALLOWED_EMAIL_DOMAINS`.
+- **Password and SSO sign-ups both join it** — nobody gets a personal
+  organization. The registration form drops its organization-name field.
+- **Only new accounts are added.** Users who existed before the mode was turned
+  on keep their current memberships.
+- The app refuses to start if `SINGLE_ORG_MODE` is on without a `SINGLE_ORG_SLUG`.
+
+### Recommended production setup
+
+For an internal app serving one company, combine the two:
+
+```env
+SSO_ONLY=true
+MICROSOFT_OAUTH_CLIENT_ID=...
+MICROSOFT_OAUTH_CLIENT_SECRET=...
+MICROSOFT_OAUTH_TENANT_ID=<your tenant ID>
+OAUTH_REDIRECT_BASE_URL=https://app.example.com
+ALLOWED_EMAIL_DOMAINS=example.com
+SINGLE_ORG_MODE=true
+SINGLE_ORG_SLUG=example
+SINGLE_ORG_NAME=Example Inc.
+COOKIE_SECURE=true
+```
+
+The first colleague to sign in becomes the organization's admin and can invite
+the rest. `demo/backend/.env.example` lists all of these with setup notes, and
+[`AGENTS.md`](AGENTS.md) §11 covers checking an SSO-only deployment.
 
 ## Credentials
 
@@ -522,8 +653,10 @@ All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`
 | `POST` | `/auth/refresh` | — | Refresh access token |
 | `POST` | `/auth/forgot-password` | — | Send reset email |
 | `POST` | `/auth/reset-password` | — | Reset with token |
-| `GET` | `/sso/google` | — | Google SSO |
-| `GET` | `/sso/microsoft` | — | Microsoft SSO |
+| `GET` | `/auth/sso/providers` | — | Enabled providers and the `sso_only` / `single_org_mode` flags |
+| `POST` | `/auth/sso/google/token` | — | Exchange a Google ID token for a session |
+| `GET` | `/auth/sso/microsoft` | — | Start the Microsoft sign-in redirect |
+| `GET` | `/auth/sso/microsoft/callback` | — | Microsoft redirect target; completes sign-in |
 | `GET` | `/account/me` | ✓ | Get profile |
 | `PUT` | `/account/me` | ✓ | Update profile |
 | `DELETE` | `/account/me` | ✓ | Delete account |

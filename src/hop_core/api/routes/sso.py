@@ -21,6 +21,7 @@ from hop_core.config import get_settings
 from hop_core.core.oauth import oauth
 from hop_core.core.rate_limit import limiter
 from hop_core.core.security import create_access_token, create_refresh_token, set_auth_cookies
+from hop_core.core.single_org import get_or_create_single_org, join_single_org
 from hop_core.db import get_db
 from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationMember, user_organizations
@@ -110,6 +111,10 @@ def _handle_sso_login(
                 detail="Registration is not allowed for your email domain.",
             )
 
+    # Resolved before the user exists: on a fresh database this creates the
+    # organization, which commits on its own.
+    single_org = get_or_create_single_org(db) if settings.single_org_mode else None
+
     user = User(
         email=email,
         password_hash=None,
@@ -120,23 +125,8 @@ def _handle_sso_login(
     db.add(user)
     db.flush()
 
-    if settings.single_org_mode:
-        if not settings.single_org_slug:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Server misconfiguration: SINGLE_ORG_SLUG is not set.",
-            )
-        org = db.query(Organization).filter(Organization.slug == settings.single_org_slug).first()
-        if not org:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Server misconfiguration: default organization not found.",
-            )
-        user.current_organization_id = org.id
-        membership = OrganizationMember(
-            user_id=user.id, organization_id=org.id, role=OrganizationRole.MEMBER,
-        )
-        db.add(membership)
+    if single_org is not None:
+        join_single_org(db, user, single_org)
     else:
         org_name = f"{name}'s Organization" if name else f"{email.split('@')[0]}'s Organization"
         base_slug = _create_slug(org_name)
