@@ -19,6 +19,7 @@ export { HopAgentService } from './lib/agents/hop-agent.service';
 export type {
   Agent, AgentSummary, AgentCreate, AgentUpdate, AgentContextFile, AiConfiguration,
   ChatMessage, AgentChatRequest, AgentChatResponse,
+  AgentReference, AgentReferenceType, HerettoConnection, HerettoResolveResult,
 } from './lib/agents/hop-agent.service';
 export { HopDitaService } from './lib/dita/hop-dita.service';
 export type { DitaExclusions, DitaRenderRequest, RenderedDitaTopic } from './lib/dita/hop-dita.service';

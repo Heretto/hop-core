@@ -16,7 +16,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from hop_core.ai import ChatMessage, GenerationRequest
+from hop_core.ai import ChatMessage, GenerationRequest, ToolSpec
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +290,37 @@ _READ_URL_TOOL_DESC = (
     "task. Only URLs from the permitted list will succeed — others are blocked."
 )
 
+READ_URL_TOOL = ToolSpec(
+    name="read_url",
+    description=_READ_URL_TOOL_DESC,
+    parameters={
+        "type": "object",
+        "properties": {"url": {"type": "string", "description": "The URL to fetch."}},
+        "required": ["url"],
+    },
+)
+
+READ_HERETTO_TOOL = ToolSpec(
+    name="read_heretto",
+    description=(
+        "Read the full text of one of this agent's Heretto references, by the id "
+        "listed under 'Heretto content you can read'. A map returns every topic "
+        "it links to. Only listed references can be read."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "reference_id": {"type": "string", "description": "The reference's id, as listed."},
+        },
+        "required": ["reference_id"],
+    },
+)
+
+
+def _tools(request: GenerationRequest) -> List[ToolSpec]:
+    """The tools on offer; read_url alone when the request names none."""
+    return request.tools if request.tools is not None else [READ_URL_TOOL]
+
 
 async def _generate_with_anthropic_tools(
     api_key: str,
@@ -297,15 +328,10 @@ async def _generate_with_anthropic_tools(
     request: GenerationRequest,
     tool_executor: Callable[[str, dict], Awaitable[str]],
 ) -> GenerationResponse:
-    tool_def = {
-        "name": "read_url",
-        "description": _READ_URL_TOOL_DESC,
-        "input_schema": {
-            "type": "object",
-            "properties": {"url": {"type": "string", "description": "The URL to fetch."}},
-            "required": ["url"],
-        },
-    }
+    tool_defs = [
+        {"name": t.name, "description": t.description, "input_schema": t.parameters}
+        for t in _tools(request)
+    ]
     messages = [{"role": m.role, "content": m.content} for m in _turns(request)]
 
     for _ in range(MAX_TOOL_ITERATIONS):
@@ -314,7 +340,7 @@ async def _generate_with_anthropic_tools(
             "max_tokens": request.max_tokens or DEFAULT_MAX_TOKENS,
             "system": request.system_prompt,
             "messages": messages,
-            "tools": [tool_def],
+            "tools": tool_defs,
         }
         if request.temperature is not None:
             body["temperature"] = request.temperature
@@ -361,18 +387,13 @@ async def _generate_with_openai_tools(
 ) -> GenerationResponse:
     import json as _json
 
-    tool_def = {
-        "type": "function",
-        "function": {
-            "name": "read_url",
-            "description": _READ_URL_TOOL_DESC,
-            "parameters": {
-                "type": "object",
-                "properties": {"url": {"type": "string", "description": "The URL to fetch."}},
-                "required": ["url"],
-            },
-        },
-    }
+    tool_defs = [
+        {
+            "type": "function",
+            "function": {"name": t.name, "description": t.description, "parameters": t.parameters},
+        }
+        for t in _tools(request)
+    ]
 
     messages = [{"role": "system", "content": request.system_prompt}]
     messages += [{"role": m.role, "content": m.content} for m in _turns(request)]
@@ -384,7 +405,7 @@ async def _generate_with_openai_tools(
             "model": model,
             "messages": messages,
             "max_completion_tokens": request.max_tokens or DEFAULT_MAX_TOKENS,
-            "tools": [tool_def],
+            "tools": tool_defs,
         }
         if request.temperature is not None:
             body["temperature"] = request.temperature
@@ -427,17 +448,8 @@ async def _generate_with_gemini_tools(
 ) -> GenerationResponse:
     tool_def = {
         "functionDeclarations": [
-            {
-                "name": "read_url",
-                "description": _READ_URL_TOOL_DESC,
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "url": {"type": "string", "description": "The URL to fetch."}
-                    },
-                    "required": ["url"],
-                },
-            }
+            {"name": t.name, "description": t.description, "parameters": t.parameters}
+            for t in _tools(request)
         ]
     }
 

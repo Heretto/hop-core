@@ -459,7 +459,7 @@ Everything importable from `@heretto/hop-ui`:
 | `HopCredentialEditorDialogComponent` | `hop-credential-editor-dialog` | Schema-driven add/edit credential form (opened by HopCredentials) | `MatDialog` data: `HopCredentialEditorDialogData` |
 | `HopCredentialTestDialogComponent` | `hop-credential-test-dialog` | Connection-test result: status, timing, request line, response body in a code panel | `MatDialog` data: `HopCredentialTestDialogData` |
 | `HopAgentsComponent` | `hop-agents` | Agent list: the whole card opens the agent; an overflow menu holds duplicate, activate, delete | — |
-| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, reference URLs, memory, and a Test tab. Routed: `new` or `:agentId` | via route params |
+| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, references (URLs and Heretto files with a type and guidance, checked against Heretto when added), memory, and a Test tab. Routed: `new` or `:agentId` | via route params |
 | `HopAgentChatComponent` | `hop-agent-chat` | Chat panel for testing an agent; shows the system prompt that produced each reply | `agentId: string \| null`, `agentName: string`, `hasConfiguration: boolean`, `dirty: boolean` |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
 | `HopDitaContentComponent` | `hop-dita-content` | Rendered DITA topic (DITA-OT HTML5 markup) styled by the theme. Sanitizes with a DITA-aware allowlist (Angular's strips the `id`s xrefs and footnotes need); `#fragment` links scroll in place, other links emit `linkClick` first — call `event.preventDefault()` to route them yourself | `html: string` (from `hop_core.dita.DitaRenderer`) **or** `dita: string` (raw XML, rendered via `POST /dita/render` — needs `include_dita_router=True`), `exclude?: DitaExclusions`, `headingOffset = 0`; outputs `rendered: RenderedDitaTopic`, `linkClick: HopDitaLinkEvent` |
@@ -526,8 +526,12 @@ interface AgentChatRequest { messages: ChatMessage[]; max_tokens?: number | null
 interface AgentChatResponse { message: ChatMessage; provider: string; model: string; ai_configuration_name: string; system_prompt: string; }
 interface AgentContextFile { id?: string; name: string; content: string; position?: number; }
 interface AgentSummary { id: string; name: string; description?: string | null; ai_configuration_id?: string | null; ai_configuration?: AiConfiguration | null; permitted_urls: string[]; context_file_count: number; has_feedback_memory: boolean; is_active: boolean; created_at?: string; updated_at?: string; created_by?: string | null; }
-interface Agent extends AgentSummary { context_files: AgentContextFile[]; feedback_memory: string; }
-interface AgentCreate { name: string; description?: string | null; ai_configuration_id?: string | null; context_files?: AgentContextFile[]; permitted_urls?: string[]; feedback_memory?: string; is_active?: boolean; }
+type AgentReferenceType = 'general' | 'style_guide' | 'information_model' | 'terminology';   // the last three are included in every run
+interface AgentReference { id?: string | null; kind: 'url' | 'heretto'; guidance: string; url?: string | null; credential_id?: string | null; file_id?: string | null; title?: string | null; path?: string | null; is_map?: boolean; reference_type?: AgentReferenceType | null; credential_name?: string | null; available?: boolean; }
+interface HerettoConnection { id: string; name: string; server_url: string; }
+interface HerettoResolveResult { file_id: string; title: string; name: string; path?: string | null; is_map: boolean; }
+interface Agent extends AgentSummary { context_files: AgentContextFile[]; references: AgentReference[]; feedback_memory: string; }
+interface AgentCreate { name: string; description?: string | null; ai_configuration_id?: string | null; context_files?: AgentContextFile[]; references?: AgentReference[]; permitted_urls?: string[] /* older shape */; feedback_memory?: string; is_active?: boolean; }
 type AgentUpdate = Partial<AgentCreate>;
 type DitaExclusions = Record<string, string[]>;   // { audience: ['expert'] }
 interface DitaRenderRequest { content: string; exclude?: DitaExclusions; show_draft?: boolean; heading_offset?: number; }
@@ -584,11 +588,13 @@ HopAgentService {
   listAgents(): Observable<AgentSummary[]>;             // summaries — no context bodies
   getAgent(agentId): Observable<Agent>;                 // full agent
   createAgent(agent: AgentCreate): Observable<Agent>;
-  updateAgent(agentId, changes: AgentUpdate): Observable<Agent>;   // context_files/permitted_urls replace the list
+  updateAgent(agentId, changes: AgentUpdate): Observable<Agent>;   // context_files/references replace the list
   deleteAgent(agentId): Observable<{message}>;
   replaceMemory(agentId, feedbackMemory): Observable<Agent>;
   appendFeedback(agentId, feedback, heading?): Observable<Agent>;
   listAiConfigurations(): Observable<AiConfiguration[]>;  // the editor's select options
+  listHerettoConnections(): Observable<HerettoConnection[]>;
+  resolveHerettoReference(credentialId, identifier): Observable<HerettoResolveResult>;  // file ID, Heretto URL or repository path
   chat(agentId, request: AgentChatRequest): Observable<AgentChatResponse>;  // stores nothing
 }
 

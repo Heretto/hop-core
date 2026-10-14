@@ -15,7 +15,7 @@ A batteries-included platform library for building AI-powered content creation a
 | **Organizations** | Multi-tenant model — every user belongs to one or more orgs, role-based access (admin / member), org switching with re-issued tokens |
 | **Invitations** | Token-based email invitations for new and existing users, admin-managed pending invites |
 | **Credentials** | Org-scoped encrypted credential storage (Fernet / PBKDF2), generic CRUD, and a registry of credential *types* with field specs and connection testers — an app picks which types it offers and gets a working management UI, including a Test button, for them |
-| **Agents** | Org-scoped agent configurations — name, a selected AI configuration, markdown context files, permitted reference URLs, and a separate feedback memory. CRUD at `/agents`, a chat endpoint for testing one, and `hop_core.agents` (`AgentDefinition`, `AgentRunner`) for running one from a job or workflow |
+| **Agents** | Org-scoped agent configurations — name, a selected AI configuration, markdown context files, reference material (URLs and Heretto files, each with guidance), and a separate feedback memory. CRUD at `/agents`, a chat endpoint for testing one, and `hop_core.agents` (`AgentDefinition`, `AgentRunner`) for running one from a job or workflow |
 | **Account** | Self-service profile updates (email, password, account deletion) |
 | **Password reset** | Token-based reset flow with SMTP email delivery |
 | **Security** | CSRF double-submit cookie protection, rate limiting via slowapi, SSRF-safe URL validation, security response headers |
@@ -34,7 +34,7 @@ A batteries-included platform library for building AI-powered content creation a
 | `HopAccountComponent` | Profile editor (email, password change) |
 | `HopAdminComponent` | Organization member management with invite dialog |
 | `HopCredentialsComponent` | Credential management — a tab per registered type, forms built from each type's declared fields, one-click connection testing |
-| `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, reference URLs, memory, and a chat panel for testing the agent |
+| `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, references, memory, and a chat panel for testing the agent |
 | `HopDitaContentComponent` + `HopDitaService` | `<hop-dita-content>` shows rendered DITA — `[html]` from your backend's `DitaRenderer`, or `[dita]` rendered via `POST /dita/render` — styled by the theme, with in-topic links scrolling in place and other links reported through `(linkClick)` |
 | `HopMainLayoutComponent` | App shell with sidebar navigation, header, and router outlet |
 | `HopAuthService` | Reactive auth state, token refresh, login/logout |
@@ -507,8 +507,66 @@ An **agent** is a reusable, organization-scoped configuration:
 | **Name** and description | How jobs and workflows refer to the agent |
 | **AI configuration** | The model the agent runs on, selected from configurations established separately — one `ai_configuration_id`, one select box |
 | **Context files** | Markdown documents the agent is given as reference on every run — style guides, templates, domain background |
-| **Permitted URLs** | URL prefixes the agent may read for additional reference. An entry covers the pages beneath it, and a leading `*.` on the host covers subdomains |
+| **References** | Reference material, each with optional guidance on how to use it: URLs the agent may read, and files in Heretto — style guides, information models and terminology included in every run, general content read on demand. See [Reference material](#reference-material) |
 | **Feedback memory** | What the agent has learned from feedback on past work, kept deliberately separate from context files: context is what the agent was given, memory is what it has picked up |
+
+### Reference material
+
+Each reference carries optional **guidance** — the operator's note on how the
+agent should use it ("check product names against this", "only for API
+facts") — which goes into the prompt beside it.
+
+**URLs.** A URL prefix the agent may fetch with its `read_url` tool. An entry
+covers the pages beneath it, and a leading `*.` on the host covers subdomains.
+
+**Heretto files.** A topic or map in Heretto CCMS, read through a *Heretto
+connection* — an ordinary [credential](#credentials) of type `heretto` (server
+URL, username, API token). The editor accepts a **file ID**, a **Heretto URL
+containing one**, or a **repository path** such as
+`master/product/documents/guides/style.dita`, and checks it against Heretto
+before adding it. A **map reads as every topic it links to**, in map order and
+following submaps: a map is a collection of links, and whoever picks one means
+the content it collects. Content reaches the model as readable text converted
+from the DITA — headings, lists, tables, glossary entries.
+
+A Heretto reference's **type** decides how it reaches the agent:
+
+| Type | Delivery |
+|---|---|
+| Style guide | Included in full in every run, framed as rules to follow |
+| Information model | Included in full in every run, framed as the structures content must conform to |
+| Terminology / glossary | Included in full in every run, framed as terms to use consistently |
+| General content | Listed in the prompt; the agent reads it with its `read_heretto` tool when a task needs it |
+
+Included references are fetched before each run through a short-lived cache
+(10 minutes, per process), so a test chat does not refetch them on every
+message. One reference is capped at 300 topics and 200,000 characters; a cap
+that is hit, or a linked topic that cannot be read, is noted in the text the
+agent sees rather than failing the run. A reference that cannot be loaded at
+all — Heretto unreachable, connection deleted — is reported to the agent as
+missing. Conrefs and keyrefs are not resolved.
+
+> The cache is the seam for smarter caching later: a cache that stores a
+> compressed digest of a large reference in place of its full text plugs in as
+> a `ReferenceCache` without the runner changing.
+
+**API.** Agents carry a `references` list; sending it replaces the whole list.
+`permitted_urls` still works for older clients — sending it alone replaces the
+URL references and keeps the Heretto ones — and is still returned. Agents saved
+before references existed read their old URL list as URL references until they
+are next saved. `GET /agents/heretto-connections` lists the organization's
+Heretto connections, and `POST /agents/heretto/resolve` checks an identifier:
+
+```jsonc
+// → POST /agents/heretto/resolve
+{"credential_id": "…", "identifier": "master/product/documents/guides/style.dita"}
+// ← 200
+{"file_id": "…", "title": "House style", "name": "style.dita",
+ "path": "master/product/documents/guides/style.dita", "is_map": false}
+```
+
+Deleting a Heretto connection does not delete the references using it; they
+show as unavailable until removed.
 
 ### The model configuration is established separately
 
@@ -536,13 +594,20 @@ set to null and they show as unconfigured.
 instructions and receives its output back:
 
 ```python
-from hop_core.agents import AgentDefinition, AgentRequest, AgentRunner
+from hop_core.agents import (
+    AgentDefinition, AgentRequest, AgentRunner, heretto_reference_source,
+)
 from hop_core.models.agent import Agent
 
 agent = db.query(Agent).filter(Agent.id == agent_id).one()
 definition = AgentDefinition.from_model(agent)
 
-result = await AgentRunner(ai_service).run(
+result = await AgentRunner(
+    ai_service,
+    # Reads Heretto references through the organization's own connections.
+    # Without it, Heretto references are reported to the agent as unavailable.
+    reference_source=heretto_reference_source(agent.organization_id, db),
+).run(
     definition,
     AgentRequest(instructions="Write the release notes", input=merged_prs),
 )
@@ -550,7 +615,7 @@ result.output  # what the workflow does something with
 ```
 
 `AgentDefinition` composes the system prompt from the agent's description,
-context files, permitted URLs, and feedback memory, and resolves the selected
+context files, references, and feedback memory, and resolves the selected
 AI configuration into `definition.ai_configuration` (`credential_id`,
 `provider`, `model` — no API key). `AgentRequest` supplies the per-run
 instructions and input, plus `temperature` / `max_tokens`: the configuration
@@ -561,7 +626,10 @@ service default.
 `ai_service` is any object with an `async generate(request) -> result` method
 exposing `.content` (`hop_core.ai.SupportsGenerate`) — hop-core does not pick a
 model vendor and fetches no keys; the host app's service decrypts the
-credential named by `credential_id` itself.
+credential named by `credential_id` itself. A service that also has
+`generate_with_tools(request, executor)` gets tool calls: `request.tools` lists
+what is on offer (`read_url`, `read_heretto`), and it calls `executor(name,
+args)` for each call the model makes.
 
 Before fetching a URL on the agent's behalf, check it against the agent's list:
 
@@ -614,14 +682,14 @@ Everything else stays injectable — `AgentRunner` still takes any
 
 Agent management is two pages: `HopAgentsComponent` lists them, and
 `HopAgentEditorComponent` creates and edits one on its own full page — tabs for
-the AI configuration, context files, reference URLs, and memory. Editing is a
+the AI configuration, context files, references, and memory. Editing is a
 page rather than a dialog because an agent is a substantial thing to author,
 and the page has room to grow.
 
 In the list, **clicking an agent opens it** — there is no Edit button, and the
 overflow menu holds duplicate, activate and delete.
 
-The editor's five tabs are Configuration, Context, Reference URLs, Memory and
+The editor's five tabs are Configuration, Context, References, Memory and
 **Test**. Test is the chat panel: send a message, see the reply, and expand the
 system prompt that produced it. It tells you plainly when it cannot
 run — the agent is unsaved, has no AI configuration, or has unsaved edits that
@@ -684,6 +752,8 @@ All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`
 | `GET` | `/agents` | ✓ | List agents (summaries) |
 | `POST` | `/agents` | ✓ | Create agent |
 | `GET` | `/agents/ai-configurations` | ✓ | AI configurations an agent can select |
+| `GET` | `/agents/heretto-connections` | ✓ | Heretto connections references can be read through |
+| `POST` | `/agents/heretto/resolve` | ✓ | Check a Heretto file ID, URL or repository path and describe the file |
 | `GET` | `/agents/{id}` | ✓ | Get agent with context files and memory |
 | `PUT` | `/agents/{id}` | ✓ | Update agent (partial) |
 | `DELETE` | `/agents/{id}` | ✓ | Delete agent |
