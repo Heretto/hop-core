@@ -24,6 +24,7 @@ from hop_core.core.security import (
     create_password_reset_token, decode_password_reset_token,
 )
 from hop_core.core.exceptions import AuthenticationError
+from hop_core.core.org_context import pending_invitations, token_org_claims
 from hop_core.core.rate_limit import limiter
 from hop_core.core.single_org import get_or_create_single_org, join_single_org
 from hop_core.api.dependencies import reject_password_auth_if_sso_only
@@ -68,6 +69,24 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
+
+    # Someone who was invited joins the inviting organization through the
+    # invitation, not by registering: registering would create an organization
+    # of their own, and they'd sign in to it instead of the one that invited
+    # them. Nor can registering join them: nothing here proves the address is
+    # theirs, and the invitation token is that proof.
+    if not settings.single_org_mode:
+        invitations = pending_invitations(db, user_data.email)
+        if invitations:
+            names = ", ".join(sorted({
+                org.name for org in db.query(Organization).filter(
+                    Organization.id.in_([i.organization_id for i in invitations])
+                )
+            }))
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"You've been invited to {names}. Use the link in your invitation email to join.",
+            )
 
     # Resolved before the user exists: on a fresh database this creates the
     # organization, which commits on its own.
@@ -142,15 +161,12 @@ async def login(
     stmt = select(user_organizations).where(user_organizations.c.user_id == user.id)
     user_orgs = db.execute(stmt).fetchall()
 
-    token_data = {"sub": str(user.id), "email": user.email}
+    # The organization they were last working in, not whichever membership
+    # the database happens to list first.
+    token_data = {"sub": str(user.id), "email": user.email, **token_org_claims(db, user)}
 
     org_list = []
     if user_orgs:
-        default_org = user_orgs[0]
-        default_role = default_org.role.value if hasattr(default_org.role, 'value') else default_org.role
-        token_data["org_id"] = str(default_org.organization_id)
-        token_data["org_role"] = default_role.lower() if isinstance(default_role, str) else default_role
-
         for uo in user_orgs:
             org = db.query(Organization).filter(Organization.id == uo.organization_id).first()
             if org:
@@ -226,18 +242,7 @@ async def refresh_token_endpoint(
                 detail="Please sign in using SSO.",
             )
 
-        token_data = {"sub": str(user.id), "email": user.email}
-
-        if user.current_organization_id:
-            stmt = select(user_organizations).where(
-                user_organizations.c.user_id == user.id,
-                user_organizations.c.organization_id == user.current_organization_id,
-            )
-            membership = db.execute(stmt).first()
-            if membership:
-                role_val = membership.role.value if hasattr(membership.role, 'value') else membership.role
-                token_data["org_id"] = str(user.current_organization_id)
-                token_data["org_role"] = role_val.lower() if isinstance(role_val, str) else role_val
+        token_data = {"sub": str(user.id), "email": user.email, **token_org_claims(db, user)}
 
         new_access_token = create_access_token(data=token_data)
         new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
