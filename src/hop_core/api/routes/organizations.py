@@ -454,12 +454,12 @@ async def cancel_invitation(
 @router.post("/invitations/accept/{token}")
 async def accept_invitation(
     token: str,
+    response: Response,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     invitation = db.query(OrganizationInvitation).filter(
         OrganizationInvitation.token == token,
-        OrganizationInvitation.accepted_at.is_(None),
     ).first()
 
     if not invitation:
@@ -468,17 +468,7 @@ async def accept_invitation(
             detail="Invalid or expired invitation",
         )
 
-    inv_expires = invitation.expires_at
-    inv_now = datetime.now(timezone.utc)
-    if inv_expires.tzinfo is None:
-        inv_now = inv_now.replace(tzinfo=None)
-    if inv_expires < inv_now:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invitation has expired",
-        )
-
-    if current_user.email != invitation.email:
+    if current_user.email.lower() != invitation.email.lower():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This invitation is for a different email address",
@@ -490,6 +480,28 @@ async def accept_invitation(
             user_organizations.c.organization_id == invitation.organization_id,
         )
     ).first()
+
+    if invitation.accepted_at is not None:
+        # Already used by this person (with SSO, their first sign-in joins
+        # them): accepting again just takes them to the organization.
+        if not existing_member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid or expired invitation",
+            )
+        current_user.current_organization_id = invitation.organization_id
+        db.commit()
+        return _joined_response(response, current_user, invitation.organization_id, existing_member.role)
+
+    inv_expires = invitation.expires_at
+    inv_now = datetime.now(timezone.utc)
+    if inv_expires.tzinfo is None:
+        inv_now = inv_now.replace(tzinfo=None)
+    if inv_expires < inv_now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation has expired",
+        )
 
     if existing_member:
         raise HTTPException(
@@ -507,7 +519,32 @@ async def accept_invitation(
     )
 
     invitation.accepted_at = datetime.now(timezone.utc)
+    # They accepted to work in this organization: switch them to it now, with
+    # fresh tokens (as switching organization does), not at their next login.
+    current_user.current_organization_id = invitation.organization_id
 
     db.commit()
 
-    return {"message": "Successfully joined the organization"}
+    return _joined_response(response, current_user, invitation.organization_id, invitation.role)
+
+
+def _joined_response(response: Response, user: User, org_id, role) -> dict:
+    """Tokens (also set as cookies) for the organization just joined."""
+    settings = get_settings()
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "email": user.email,
+        "org_id": str(org_id),
+        "org_role": _normalize_role(role),
+    })
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_token_expire_minutes)).timestamp())
+    set_auth_cookies(response, access_token, refresh_token)
+    return {
+        "message": "Successfully joined the organization",
+        "organization_id": str(org_id),
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_at": expires_at,
+    }

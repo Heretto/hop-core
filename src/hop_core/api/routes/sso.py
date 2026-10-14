@@ -15,16 +15,16 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 from hop_core.config import get_settings
 from hop_core.core.oauth import oauth
 from hop_core.core.rate_limit import limiter
+from hop_core.core.org_context import join_invited_organizations, pending_invitations, token_org_claims
 from hop_core.core.security import create_access_token, create_refresh_token, set_auth_cookies
 from hop_core.core.single_org import get_or_create_single_org, join_single_org
 from hop_core.db import get_db
 from hop_core.models.user import User
-from hop_core.models.organization import Organization, OrganizationMember, user_organizations
+from hop_core.models.organization import Organization, OrganizationMember
 from hop_core.models.enums import OrganizationRole
 
 logger = logging.getLogger(__name__)
@@ -66,17 +66,7 @@ def _create_slug(name: str) -> str:
 
 
 def _build_token_data(user: User, db: Session) -> dict:
-    token_data = {"sub": str(user.id), "email": user.email}
-    stmt = select(user_organizations).where(user_organizations.c.user_id == user.id)
-    user_orgs = db.execute(stmt).fetchall()
-
-    if user_orgs:
-        default_org = user_orgs[0]
-        role_val = default_org.role.value if hasattr(default_org.role, "value") else default_org.role
-        token_data["org_id"] = str(default_org.organization_id)
-        token_data["org_role"] = role_val.lower() if isinstance(role_val, str) else role_val
-
-    return token_data
+    return {"sub": str(user.id), "email": user.email, **token_org_claims(db, user)}
 
 
 def _handle_sso_login(
@@ -125,8 +115,14 @@ def _handle_sso_login(
     db.add(user)
     db.flush()
 
+    # The identity provider verified this address, so an invitation to it can
+    # be taken up here: join the organizations that invited them rather than
+    # creating one of their own.
+    invitations = pending_invitations(db, email) if single_org is None else []
     if single_org is not None:
         join_single_org(db, user, single_org)
+    elif invitations:
+        join_invited_organizations(db, user, invitations)
     else:
         org_name = f"{name}'s Organization" if name else f"{email.split('@')[0]}'s Organization"
         base_slug = _create_slug(org_name)

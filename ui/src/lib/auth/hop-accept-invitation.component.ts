@@ -22,6 +22,8 @@ export interface InvitationInfo {
   invited_by_email: string;
   expires_at: string;
   is_existing_user: boolean;
+  /** Already used: with SSO, the invitee's first sign-in joins them. */
+  accepted?: boolean;
 }
 
 @Component({
@@ -257,9 +259,11 @@ export class HopAcceptInvitationComponent implements OnInit {
     this.accepting = true;
     this.organizationService.acceptInvitation(this.token).subscribe({
       next: (response: any) => {
+        // The server switched them to the organization and sent fresh tokens.
+        if (response?.access_token) this.authService.updateTokens(response);
         this.success = true;
-        this.successMessage = `${response.message || 'You have joined the organization'}. `
-          + 'Switch to it from the settings menu at the top right.';
+        const name = this.invitationInfo?.organization_name;
+        this.successMessage = name ? `You've joined ${name} and are now working in it.` : `${response.message || 'You have joined the organization'}.`;
         this.accepting = false;
         this.cdr.markForCheck();
       },
@@ -281,6 +285,14 @@ export class HopAcceptInvitationComponent implements OnInit {
     ).subscribe(info => {
       if (info) this.invitationInfo = info;
       this.loading = false;
+      if (info?.accepted) {
+        if (this.signedIn) {
+          // They've joined (an SSO sign-in does that): take them to the org.
+          this.acceptWithSso();
+        } else {
+          this.error = 'This invitation has already been accepted. Sign in to continue.';
+        }
+      }
       this.cdr.markForCheck();
     });
   }

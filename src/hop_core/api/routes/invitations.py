@@ -31,6 +31,9 @@ class InvitationInfoResponse(BaseModel):
     invited_by_email: str
     expires_at: datetime
     is_existing_user: bool
+    # Already used: with SSO, an invitee's first sign-in joins them, and they
+    # come back to the invitation page after it.
+    accepted: bool = False
 
 
 class AcceptInvitationRequest(BaseModel):
@@ -53,7 +56,6 @@ async def get_invitation_info(
 ):
     invitation = db.query(OrganizationInvitation).filter(
         OrganizationInvitation.token == token,
-        OrganizationInvitation.accepted_at.is_(None),
     ).first()
 
     if not invitation:
@@ -62,7 +64,8 @@ async def get_invitation_info(
             detail="Invalid or expired invitation",
         )
 
-    if _is_expired(invitation.expires_at):
+    accepted = invitation.accepted_at is not None
+    if not accepted and _is_expired(invitation.expires_at):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This invitation has expired",
@@ -84,6 +87,7 @@ async def get_invitation_info(
         invited_by_email=inviter.email if inviter else "Unknown",
         expires_at=invitation.expires_at,
         is_existing_user=False,
+        accepted=accepted,
     )
 
 
@@ -174,8 +178,9 @@ async def accept_invitation_new_user(
     )
     db.add(member)
 
-    if not user.current_organization_id:
-        user.current_organization_id = invitation.organization_id
+    # They accepted to work in this organization: make it the one they see,
+    # even if they already had one of their own.
+    user.current_organization_id = invitation.organization_id
 
     invitation.accepted_at = datetime.now(timezone.utc)
 
@@ -251,8 +256,9 @@ async def accept_invitation_existing_user(
     )
     db.add(member)
 
-    if not user.current_organization_id:
-        user.current_organization_id = invitation.organization_id
+    # They accepted to work in this organization: make it the one they see,
+    # even if they already had one of their own.
+    user.current_organization_id = invitation.organization_id
 
     invitation.accepted_at = datetime.now(timezone.utc)
 

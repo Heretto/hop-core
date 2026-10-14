@@ -643,9 +643,23 @@ hop-ui login, invitation and account pages read the flag from
 - **Invitations are accepted after SSO sign-in.** The invite page sends the
   invitee through the provider and back, then calls the authenticated
   `POST /organizations/invitations/accept/{token}`, which requires the signed-in
-  email to match the invitation. A first-time SSO sign-in still creates the
-  user's own organization unless `SINGLE_ORG_MODE` is on, and
-  `ALLOWED_EMAIL_DOMAINS` applies to invitees too.
+  email to match the invitation. A first-time SSO sign-in with pending
+  invitations joins the organizations that invited that address (the newest
+  becomes current) instead of creating one of its own; without invitations it
+  still creates the user's own organization unless `SINGLE_ORG_MODE` is on.
+  Coming back to the invite page after that is fine: accepting an invitation
+  you have already used takes you to its organization. `ALLOWED_EMAIL_DOMAINS`
+  applies to invitees too. Joining on sign-in trusts the provider's email
+  address, so set `MICROSOFT_OAUTH_TENANT_ID` (below).
+
+**Invited users get no organization of their own.** Password registration for
+an address with a pending invitation is refused (409, naming the inviting
+organization) rather than creating an extra organization the user would then
+sign in to: they join through the invitation link, whose token proves the
+address is theirs. Accepting any invitation makes that organization the user's
+current one, and signing in (password, SSO or refresh) issues a token for the
+current organization while the user is still a member of it — see
+`hop_core.core.org_context`.
 
 **Set `MICROSOFT_OAUTH_TENANT_ID`.** The default, `common`, accepts any Microsoft
 account. When a token carries no `email` claim the callback falls back to
