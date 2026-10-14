@@ -331,26 +331,30 @@ export class HopCredentialsComponent implements OnInit {
     this.testing.add(credential.id);
     this.results.delete(credential.id);
 
+    const show = (result: CredentialTestResult): void => {
+      this.testing.delete(credential.id);
+      this.results.set(credential.id, result);
+      data.result = result;
+      this.cdr.markForCheck();
+      // The dialog is a view of its own, attached outside this component, so
+      // marking this component doesn't refresh it: without zone.js nothing
+      // else would, and its spinner would never stop. Mark it too, unless it
+      // was closed before the result came back.
+      const dialog = dialogRef.componentRef;
+      if (dialog && !dialog.hostView.destroyed) {
+        dialog.changeDetectorRef.markForCheck();
+      }
+    };
+
     this.credentialService.testCredential(credential.id).subscribe({
-      next: result => {
-        this.testing.delete(credential.id);
-        this.results.set(credential.id, result);
-        data.result = result;
-        this.cdr.markForCheck();
-      },
-      error: error => {
-        this.testing.delete(credential.id);
-        const result: CredentialTestResult = {
-          success: false,
-          message: error?.error?.detail || 'The test could not be run.',
-          details: {},
-          exchange: null,
-          tested_at: new Date().toISOString(),
-        };
-        this.results.set(credential.id, result);
-        data.result = result;
-        this.cdr.markForCheck();
-      },
+      next: result => show(result),
+      error: error => show({
+        success: false,
+        message: error?.error?.detail || 'The test could not be run.',
+        details: {},
+        exchange: null,
+        tested_at: new Date().toISOString(),
+      }),
     });
 
     // Nothing to do on close; the row chip keeps the outcome.
