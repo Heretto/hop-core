@@ -10,6 +10,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -17,8 +18,18 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
-  Agent, AgentContextFile, AgentCreate, AiConfiguration, HopAgentService,
+  Agent, AgentContextFile, AgentCreate, AgentReference, AgentReferenceType, AiConfiguration,
+  HerettoConnection, HopAgentService,
 } from './hop-agent.service';
+
+/** The Heretto reference types and how each reaches the agent. */
+const REFERENCE_TYPES: { value: AgentReferenceType; label: string }[] = [
+  { value: 'general', label: 'General content' },
+  { value: 'style_guide', label: 'Style guide' },
+  { value: 'information_model', label: 'Information model' },
+  { value: 'terminology', label: 'Terminology / glossary' },
+];
+const INCLUDED_TYPES: AgentReferenceType[] = ['style_guide', 'information_model', 'terminology'];
 import { HopAgentChatComponent } from './hop-agent-chat.component';
 
 @Component({
@@ -27,7 +38,7 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatTabsModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonToggleModule, MatSlideToggleModule,
     MatTooltipModule, MatProgressSpinnerModule, MatSnackBarModule,
     HopAgentChatComponent,
   ],
@@ -200,43 +211,134 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
             </div>
           </mat-tab>
 
-          <!-- Permitted URLs -->
-          <mat-tab [label]="'Reference URLs (' + permittedUrls.length + ')'">
+          <!-- References -->
+          <mat-tab [label]="'References (' + references.length + ')'">
             <div class="tab-body">
               <div class="form-column">
                 <p class="field-hint">
-                  URLs the agent may read for additional reference. A URL covers the pages
-                  beneath it, so <code>https://docs.example.com/guide</code> also permits
-                  <code>/guide/install</code>. Use <code>*.</code> before a host to cover
-                  its subdomains.
+                  Material the agent can draw on: URLs it may read, and files in Heretto.
+                  Guidance on each one tells the agent how to use it.
                 </p>
 
-                <div class="url-add">
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Add a URL</mat-label>
-                    <input matInput [formControl]="urlControl"
-                           placeholder="https://docs.example.com/guide"
-                           (keydown.enter)="addUrl(); $event.preventDefault()">
-                    <mat-error *ngIf="urlControl.hasError('invalidUrl')">
-                      Enter a full http:// or https:// URL
-                    </mat-error>
-                    <mat-error *ngIf="urlControl.hasError('duplicate')">
-                      That URL is already on the list
-                    </mat-error>
+                <div class="reference-add">
+                  <mat-button-toggle-group [value]="addKind" (change)="setAddKind($event.value)"
+                                           aria-label="Kind of reference to add">
+                    <mat-button-toggle value="url"><mat-icon>link</mat-icon> URL</mat-button-toggle>
+                    <mat-button-toggle value="heretto"><mat-icon>menu_book</mat-icon> Heretto</mat-button-toggle>
+                  </mat-button-toggle-group>
+
+                  <ng-container *ngIf="addKind === 'url'">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>URL</mat-label>
+                      <input matInput [formControl]="urlControl"
+                             placeholder="https://docs.example.com/guide"
+                             (keydown.enter)="addReference(); $event.preventDefault()">
+                      <mat-hint>
+                        Covers the pages beneath it. Put <code>*.</code> before a host to cover its subdomains.
+                      </mat-hint>
+                      <mat-error *ngIf="urlControl.hasError('invalidUrl')">
+                        Enter a full http:// or https:// URL
+                      </mat-error>
+                      <mat-error *ngIf="urlControl.hasError('duplicate')">
+                        That URL is already on the list
+                      </mat-error>
+                    </mat-form-field>
+                  </ng-container>
+
+                  <ng-container *ngIf="addKind === 'heretto'">
+                    <p class="notice" *ngIf="herettoConnections.length === 0">
+                      <mat-icon>info</mat-icon>
+                      No Heretto connection is set up. Add one under Credentials to reference
+                      content in Heretto.
+                    </p>
+                    <ng-container *ngIf="herettoConnections.length > 0">
+                      <mat-form-field appearance="outline" class="full-width"
+                                      *ngIf="herettoConnections.length > 1">
+                        <mat-label>Heretto connection</mat-label>
+                        <mat-select [formControl]="herettoConnectionControl">
+                          <mat-option *ngFor="let c of herettoConnections" [value]="c.id">
+                            {{ c.name }}
+                          </mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Heretto file</mat-label>
+                        <input matInput [formControl]="herettoIdControl"
+                               placeholder="File ID, Heretto URL, or repository path"
+                               (keydown.enter)="addReference(); $event.preventDefault()">
+                        <mat-hint *ngIf="!herettoError">
+                          A topic or a map — a map brings in every topic it links to.
+                        </mat-hint>
+                      </mat-form-field>
+                      <p class="error-text field-error" *ngIf="herettoError">{{ herettoError }}</p>
+                      <mat-form-field appearance="outline" class="full-width">
+                        <mat-label>Type</mat-label>
+                        <mat-select [formControl]="newTypeControl">
+                          <mat-option *ngFor="let t of referenceTypes" [value]="t.value">{{ t.label }}</mat-option>
+                        </mat-select>
+                        <mat-hint>{{ deliveryHint(newTypeControl.value) }}</mat-hint>
+                      </mat-form-field>
+                    </ng-container>
+                  </ng-container>
+
+                  <mat-form-field appearance="outline" class="full-width"
+                                  *ngIf="addKind === 'url' || herettoConnections.length > 0">
+                    <mat-label>Guidance (optional)</mat-label>
+                    <textarea matInput [formControl]="newGuidanceControl" rows="2"
+                              placeholder="How should the agent use this? e.g. 'Check product names against this.'"></textarea>
                   </mat-form-field>
-                  <button mat-stroked-button type="button" (click)="addUrl()">Add</button>
+
+                  <div class="add-row" *ngIf="addKind === 'url' || herettoConnections.length > 0">
+                    <button mat-stroked-button type="button" [disabled]="resolving" (click)="addReference()">
+                      <mat-spinner diameter="18" *ngIf="resolving"></mat-spinner>
+                      <span *ngIf="!resolving">Add reference</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div class="empty-state" *ngIf="permittedUrls.length === 0">
+                <div class="empty-state" *ngIf="references.length === 0">
                   <mat-icon>link_off</mat-icon>
-                  <p>No URLs permitted. The agent works from its context files alone.</p>
+                  <p>No references. The agent works from its context files alone.</p>
                 </div>
 
-                <ul class="url-list" *ngIf="permittedUrls.length > 0">
-                  <li *ngFor="let url of permittedUrls; let i = index">
-                    <span class="url-text">{{ url }}</span>
-                    <button mat-icon-button type="button" matTooltip="Remove URL"
-                            (click)="removeUrl(i)">
+                <ul class="reference-list" *ngIf="references.length > 0">
+                  <li *ngFor="let ref of references; let i = index"
+                      [class.unavailable]="ref.kind === 'heretto' && ref.available === false">
+                    <mat-icon class="ref-icon">{{ referenceIcon(ref) }}</mat-icon>
+                    <div class="ref-main">
+                      <div class="ref-title" [class.mono]="ref.kind === 'url'">{{ referenceTitle(ref) }}</div>
+                      <div class="ref-meta" *ngIf="ref.kind === 'heretto'">
+                        <span *ngIf="ref.is_map">Map · includes every topic it links to · </span>
+                        <span *ngIf="ref.path" class="mono">{{ ref.path }}</span>
+                        <span *ngIf="ref.credential_name"> · {{ ref.credential_name }}</span>
+                      </div>
+                      <p class="error-text" *ngIf="ref.kind === 'heretto' && ref.available === false">
+                        Its Heretto connection was deleted, so the agent can't read it. Remove it,
+                        then add it again through another connection.
+                      </p>
+                      <div class="ref-type" *ngIf="ref.kind === 'heretto'">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="type-field">
+                          <mat-label>Type</mat-label>
+                          <mat-select [value]="ref.reference_type || 'general'"
+                                      (selectionChange)="setReferenceType(i, $event.value)">
+                            <mat-option *ngFor="let t of referenceTypes" [value]="t.value">{{ t.label }}</mat-option>
+                          </mat-select>
+                        </mat-form-field>
+                        <span class="delivery">
+                          <mat-icon>{{ isIncluded(ref.reference_type) ? 'push_pin' : 'travel_explore' }}</mat-icon>
+                          {{ deliveryHint(ref.reference_type) }}
+                        </span>
+                      </div>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+                        <mat-label>Guidance (optional)</mat-label>
+                        <textarea matInput rows="2" [value]="ref.guidance"
+                                  (input)="setReferenceGuidance(i, $any($event.target).value)"
+                                  placeholder="How should the agent use this?"></textarea>
+                      </mat-form-field>
+                    </div>
+                    <button mat-icon-button type="button" matTooltip="Remove reference"
+                            [attr.aria-label]="'Remove ' + referenceTitle(ref)"
+                            (click)="removeReference(i)">
                       <mat-icon>close</mat-icon>
                     </button>
                   </li>
@@ -365,20 +467,40 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
     .context-file-edit-actions { display: flex; align-items: center; gap: 8px; }
     .markdown-input { font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.5; }
 
-    .url-add { display: flex; align-items: flex-start; gap: 12px; }
-    .url-add button { margin-top: 18px; }
-    .url-list { list-style: none; margin: 0; padding: 0; }
-    .url-list li {
-      display: flex; align-items: center; gap: 12px;
-      padding: 6px 6px 6px 12px;
+    .reference-add {
+      padding: 16px; margin-bottom: 20px;
+      border: 1px solid var(--border-default); border-radius: 8px;
+      background: var(--surface-sunken);
+    }
+    .reference-add mat-button-toggle-group { margin-bottom: 4px; }
+    .reference-add mat-button-toggle mat-icon { font-size: 18px; height: 18px; width: 18px; vertical-align: -4px; }
+    .add-row { display: flex; justify-content: flex-end; }
+    .notice {
+      display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 4px;
+      color: var(--text-secondary);
+    }
+    .notice mat-icon { color: var(--color-info); flex: none; }
+    .field-error { margin: -4px 0 8px; font-size: 0.82rem; }
+    .reference-list { list-style: none; margin: 0; padding: 0; }
+    .reference-list li {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 14px 6px 14px 4px;
       border-bottom: 1px solid var(--border-light);
     }
-    .url-list li:last-child { border-bottom: none; }
-    .url-text {
-      flex: 1; min-width: 0;
-      font-family: var(--font-mono); font-size: 0.9rem;
-      overflow-wrap: anywhere;
+    .reference-list li:last-child { border-bottom: none; }
+    .reference-list li.unavailable .ref-icon { color: var(--color-error); }
+    .ref-icon { color: var(--text-tertiary); flex: none; margin-top: 2px; }
+    .ref-main { flex: 1; min-width: 0; }
+    .ref-title { font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+    .ref-meta { color: var(--text-tertiary); font-size: 0.82rem; margin-top: 2px; overflow-wrap: anywhere; }
+    .mono { font-family: var(--font-mono); font-size: 0.86rem; font-weight: 400; }
+    .ref-type { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .type-field { width: 240px; max-width: 100%; }
+    .delivery {
+      display: inline-flex; align-items: center; gap: 4px; margin-top: 12px;
+      color: var(--text-secondary); font-size: 0.82rem;
     }
+    .delivery mat-icon { font-size: 16px; height: 16px; width: 16px; color: var(--text-tertiary); }
 
     .empty-state { text-align: center; padding: 32px 16px; color: var(--text-tertiary); }
     .empty-state mat-icon { font-size: 40px; height: 40px; width: 40px; }
@@ -405,14 +527,23 @@ export class HopAgentEditorComponent implements OnInit {
 
   agent: Agent | null = null;
   aiConfigurations: AiConfiguration[] = [];
-  permittedUrls: string[] = [];
+  herettoConnections: HerettoConnection[] = [];
+  references: AgentReference[] = [];
+  readonly referenceTypes = REFERENCE_TYPES;
 
   loading = false;
   saving = false;
   configError = '';
   memoryError = '';
 
+  addKind: 'url' | 'heretto' = 'url';
   urlControl = this.fb.control('');
+  herettoConnectionControl = this.fb.control<string | null>(null);
+  herettoIdControl = this.fb.control('');
+  newTypeControl = this.fb.control<AgentReferenceType>('general');
+  newGuidanceControl = this.fb.control('');
+  resolving = false;
+  herettoError = '';
 
   form = this.fb.group({
     name: ['', Validators.required],
@@ -440,6 +571,7 @@ export class HopAgentEditorComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAiConfigurations();
+    this.loadHerettoConnections();
 
     // Read from paramMap rather than a snapshot so the page stays correct if
     // it is ever routed to from another agent without being torn down.
@@ -455,7 +587,8 @@ export class HopAgentEditorComponent implements OnInit {
 
   private reset(): void {
     this.agent = null;
-    this.permittedUrls = [];
+    this.references = [];
+    this.resetAddForm();
     this.configError = '';
     this.memoryError = '';
     this.editingFileIndex = null;
@@ -480,7 +613,7 @@ export class HopAgentEditorComponent implements OnInit {
           feedback_memory: agent.feedback_memory ?? '',
         });
 
-        this.permittedUrls = [...(agent.permitted_urls ?? [])];
+        this.references = (agent.references ?? []).map(ref => ({ ...ref, guidance: ref.guidance ?? '' }));
         this.editingFileIndex = null;
         this.contextFiles.clear();
         for (const file of agent.context_files ?? []) {
@@ -506,6 +639,19 @@ export class HopAgentEditorComponent implements OnInit {
     this.agentService.listAiConfigurations().pipe(
       catchError(() => of([] as AiConfiguration[])),
     ).subscribe(configurations => { this.aiConfigurations = configurations; this.cdr.markForCheck(); });
+  }
+
+  /** Only populates the Heretto picker; a failure leaves it empty. */
+  private loadHerettoConnections(): void {
+    this.agentService.listHerettoConnections().pipe(
+      catchError(() => of([] as HerettoConnection[])),
+    ).subscribe(connections => {
+      this.herettoConnections = connections;
+      if (!this.herettoConnectionControl.value && connections.length) {
+        this.herettoConnectionControl.setValue(connections[0].id);
+      }
+      this.cdr.markForCheck();
+    });
   }
 
   /** Narrowing helper — templates cannot call `as FormGroup`. */
@@ -556,7 +702,40 @@ export class HopAgentEditorComponent implements OnInit {
     if (this.editingFileIndex === index) this.editingFileIndex = target;
   }
 
-  addUrl(): void {
+  setAddKind(kind: 'url' | 'heretto'): void {
+    this.addKind = kind;
+    this.herettoError = '';
+  }
+
+  isIncluded(type: AgentReferenceType | null | undefined): boolean {
+    return INCLUDED_TYPES.includes((type ?? 'general') as AgentReferenceType);
+  }
+
+  deliveryHint(type: AgentReferenceType | null | undefined): string {
+    return this.isIncluded(type)
+      ? 'Included in full in every run'
+      : 'Listed for the agent, which reads it when a task needs it';
+  }
+
+  referenceIcon(ref: AgentReference): string {
+    if (ref.kind === 'url') return 'link';
+    if (ref.available === false) return 'link_off';
+    return ref.is_map ? 'account_tree' : 'description';
+  }
+
+  referenceTitle(ref: AgentReference): string {
+    return ref.kind === 'url' ? (ref.url ?? '') : (ref.title || ref.file_id || 'Heretto file');
+  }
+
+  addReference(): void {
+    if (this.addKind === 'url') {
+      this.addUrlReference();
+    } else {
+      this.addHerettoReference();
+    }
+  }
+
+  private addUrlReference(): void {
     const raw = (this.urlControl.value ?? '').trim();
     if (!raw) return;
 
@@ -565,21 +744,93 @@ export class HopAgentEditorComponent implements OnInit {
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('scheme');
     } catch {
       this.urlControl.setErrors({ invalidUrl: true });
+      this.urlControl.markAsTouched();
       return;
     }
 
-    if (this.permittedUrls.includes(raw)) {
+    if (this.references.some(ref => ref.kind === 'url' && ref.url === raw)) {
       this.urlControl.setErrors({ duplicate: true });
+      this.urlControl.markAsTouched();
       return;
     }
 
-    this.permittedUrls = [...this.permittedUrls, raw];
-    this.urlControl.setValue('');
-    this.urlControl.setErrors(null);
+    this.pushReference({ kind: 'url', url: raw, guidance: this.newGuidance() });
   }
 
-  removeUrl(index: number): void {
-    this.permittedUrls = this.permittedUrls.filter((_, i) => i !== index);
+  /** Checked against Heretto before it is added, so a typo shows up now
+   *  rather than on the agent's next run. */
+  private addHerettoReference(): void {
+    const identifier = (this.herettoIdControl.value ?? '').trim();
+    const credentialId = this.herettoConnectionControl.value;
+    if (!identifier || !credentialId || this.resolving) return;
+
+    this.resolving = true;
+    this.herettoError = '';
+    this.agentService.resolveHerettoReference(credentialId, identifier).subscribe({
+      next: file => {
+        this.resolving = false;
+        const duplicate = this.references.some(
+          ref => ref.kind === 'heretto' && ref.credential_id === credentialId && ref.file_id === file.file_id,
+        );
+        if (duplicate) {
+          this.herettoError = `${file.title} is already on the list.`;
+        } else {
+          this.pushReference({
+            kind: 'heretto',
+            credential_id: credentialId,
+            credential_name: this.herettoConnections.find(c => c.id === credentialId)?.name ?? null,
+            file_id: file.file_id,
+            title: file.title,
+            path: file.path ?? null,
+            is_map: file.is_map,
+            reference_type: this.newTypeControl.value ?? 'general',
+            guidance: this.newGuidance(),
+            available: true,
+          });
+        }
+        this.cdr.markForCheck();
+      },
+      error: error => {
+        this.resolving = false;
+        this.herettoError = error?.error?.detail || 'Could not check that file in Heretto.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private newGuidance(): string {
+    return (this.newGuidanceControl.value ?? '').trim();
+  }
+
+  private pushReference(ref: AgentReference): void {
+    this.references = [...this.references, ref];
+    this.resetAddForm();
+    this.form.markAsDirty();
+  }
+
+  private resetAddForm(): void {
+    this.urlControl.reset('');
+    this.herettoIdControl.reset('');
+    this.newGuidanceControl.reset('');
+    this.newTypeControl.reset('general');
+    this.herettoError = '';
+  }
+
+  removeReference(index: number): void {
+    this.references = this.references.filter((_, i) => i !== index);
+    this.form.markAsDirty();
+  }
+
+  setReferenceType(index: number, type: AgentReferenceType): void {
+    this.references = this.references.map((ref, i) => i === index ? { ...ref, reference_type: type } : ref);
+    this.form.markAsDirty();
+  }
+
+  setReferenceGuidance(index: number, guidance: string): void {
+    // Mutated in place: replacing the object would re-render the textarea
+    // being typed in and drop the cursor.
+    this.references[index].guidance = guidance;
+    this.form.markAsDirty();
   }
 
   private buildPayload(): AgentCreate {
@@ -593,7 +844,17 @@ export class HopAgentEditorComponent implements OnInit {
         content: group.get('content')?.value ?? '',
         position: index,
       })),
-      permitted_urls: this.permittedUrls,
+      references: this.references.map(ref => ({
+        kind: ref.kind,
+        url: ref.kind === 'url' ? ref.url : null,
+        credential_id: ref.kind === 'heretto' ? ref.credential_id ?? null : null,
+        file_id: ref.kind === 'heretto' ? ref.file_id : null,
+        title: ref.kind === 'heretto' ? ref.title : null,
+        path: ref.kind === 'heretto' ? ref.path : null,
+        is_map: ref.kind === 'heretto' ? !!ref.is_map : false,
+        reference_type: ref.kind === 'heretto' ? ref.reference_type ?? 'general' : null,
+        guidance: (ref.guidance ?? '').trim(),
+      })),
       feedback_memory: value.feedback_memory ?? '',
       is_active: value.is_active ?? true,
     };
@@ -620,6 +881,8 @@ export class HopAgentEditorComponent implements OnInit {
         this.saving = false;
         this.agent = agent;
         this.agentId = agent.id;
+        // The server's copy carries IDs and connection names for new references.
+        this.references = (agent.references ?? []).map(ref => ({ ...ref, guidance: ref.guidance ?? '' }));
         this.form.markAsPristine();
         this.snackBar.open(
           wasNew ? 'Agent created' : 'Agent saved', 'Close', { duration: 3000 },

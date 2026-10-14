@@ -68,6 +68,15 @@ class Agent(Base):
         cascade="all, delete-orphan",
         order_by="AgentContextFile.position",
     )
+    # Reference material: URLs and Heretto files, each with guidance. Agents
+    # created before references existed keep their URLs in permitted_urls until
+    # their references are first saved; see AgentReference.
+    references = relationship(
+        "AgentReference",
+        back_populates="agent",
+        cascade="all, delete-orphan",
+        order_by="AgentReference.position",
+    )
 
 
 class AgentContextFile(Base):
@@ -86,3 +95,56 @@ class AgentContextFile(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     agent = relationship("Agent", back_populates="context_files")
+
+
+class AgentReference(Base):
+    """One piece of reference material an agent may draw on.
+
+    Either a URL (``kind="url"``) the agent reads with its ``read_url`` tool,
+    or a Heretto file (``kind="heretto"``) read through a Heretto connection —
+    a credential of type ``heretto``. A Heretto reference's ``reference_type``
+    decides how it reaches the agent: style guides, information models and
+    terminology are included in every run; general content is read on demand.
+
+    A table of its own rather than a column on ``agents``, so adding it needs
+    no migration: ``create_all`` creates it on startup.
+    """
+
+    __tablename__ = "agent_references"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("agents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    position = Column(Integer, nullable=False, default=0)
+    # "url" | "heretto"
+    kind = Column(String(20), nullable=False)
+
+    # kind == "url": a permitted URL prefix.
+    url = Column(Text, nullable=True)
+
+    # kind == "heretto". SET NULL like the AI configuration: deleting the
+    # connection leaves the reference visibly unavailable rather than gone.
+    credential_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("credentials.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    file_id = Column(String(64), nullable=True)
+    # Captured when the reference is added, for display without a round trip.
+    title = Column(String(500), nullable=True)
+    path = Column(Text, nullable=True)
+    is_map = Column(Boolean, nullable=False, default=False)
+    # "general" | "style_guide" | "information_model" | "terminology"
+    reference_type = Column(String(40), nullable=True)
+
+    # The operator's note on how to use this material.
+    guidance = Column(Text, nullable=False, default="")
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    agent = relationship("Agent", back_populates="references")
+    credential = relationship("Credential", foreign_keys=[credential_id])

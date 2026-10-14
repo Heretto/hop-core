@@ -7,13 +7,16 @@ the injected AI service, and returning what came back.
 """
 
 import logging
-from typing import Awaitable, Callable, List, Optional
+from typing import TYPE_CHECKING, Awaitable, Callable, List, Optional
 
 from pydantic import BaseModel, Field
 
 from hop_core.agents.definition import AgentDefinition
 from hop_core.agents.fetcher import FetchResult, fetch_url
-from hop_core.ai import ChatMessage, GenerationRequest, SupportsGenerate
+from hop_core.ai import ChatMessage, GenerationRequest, SupportsGenerate, ToolSpec
+
+if TYPE_CHECKING:  # pragma: no cover
+    from hop_core.heretto.content import ReferenceContentSource
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +62,50 @@ class AgentRunner:
     vendor; the host app supplies a service already wired to its credentials.
     """
 
-    def __init__(self, ai_service: SupportsGenerate):
+    def __init__(
+        self,
+        ai_service: SupportsGenerate,
+        reference_source: Optional["ReferenceContentSource"] = None,
+    ):
         self.ai_service = ai_service
+        # Reads Heretto references. Without one, references included in every
+        # run are reported as unavailable and read_heretto is not offered.
+        self.reference_source = reference_source
+
+    async def prepare(self, definition: AgentDefinition) -> AgentDefinition:
+        """Load the references that are included in every run.
+
+        Returns a copy with their content filled in. A reference that cannot
+        be read is marked unavailable rather than failing the run — the prompt
+        tells the agent it is missing, which is more useful than no answer.
+        """
+        if not definition.included_references:
+            return definition
+        prepared = definition.model_copy(deep=True)
+        for ref in prepared.included_references:
+            if not ref.credential_id:
+                ref.unavailable_reason = "its Heretto connection was deleted"
+                continue
+            if self.reference_source is None:
+                ref.unavailable_reason = "Heretto content is not available to this runner"
+                continue
+            try:
+                content = await self.reference_source.read(ref.credential_id, ref.file_id or "")
+                ref.content = content.as_prompt_text()
+            except Exception as exc:
+                logger.warning("Could not load reference %s for agent %r", ref.id, definition.name, exc_info=True)
+                ref.unavailable_reason = getattr(exc, "message", None) or "it could not be read from Heretto"
+        return prepared
+
+    def _tools(self, definition: AgentDefinition) -> List[ToolSpec]:
+        from hop_core.agents.providers import READ_HERETTO_TOOL, READ_URL_TOOL
+
+        tools: List[ToolSpec] = []
+        if definition.permitted_urls:
+            tools.append(READ_URL_TOOL)
+        if definition.on_demand_references and self.reference_source is not None:
+            tools.append(READ_HERETTO_TOOL)
+        return tools
 
     def build_user_prompt(self, request: AgentRequest) -> str:
         """Compose the per-run prompt from instructions and input."""
@@ -84,8 +129,11 @@ class AgentRunner:
         url_logger: Optional[Callable] = None,
     ) -> Callable[[str, dict], Awaitable[str]]:
         permitted_urls = list(definition.permitted_urls)
+        readable = {ref.id: ref for ref in definition.on_demand_references}
 
         async def execute(tool_name: str, args: dict) -> str:
+            if tool_name == "read_heretto":
+                return await read_heretto(args)
             if tool_name != "read_url":
                 return f"Unknown tool: {tool_name!r}"
             url = (args.get("url") or "").strip()
@@ -101,7 +149,32 @@ class AgentRunner:
                 return f"Could not fetch {url}: {fetch_result.blocked_reason}"
             return fetch_result.content or f"No readable content at {url}."
 
+        async def read_heretto(args: dict) -> str:
+            ref_id = str(args.get("reference_id") or "").strip()
+            ref = readable.get(ref_id)
+            if ref is None:
+                return (
+                    f"No readable reference with id {ref_id!r}. "
+                    "Use one of the ids listed under 'Heretto content you can read'."
+                )
+            if self.reference_source is None:
+                return "Heretto content is not available to this runner."
+            try:
+                content = await self.reference_source.read(ref.credential_id, ref.file_id or "")
+            except Exception as exc:
+                logger.warning("read_heretto failed for reference %s", ref_id, exc_info=True)
+                return f"Could not read {ref.display_title}: {getattr(exc, 'message', None) or exc}"
+            return content.as_prompt_text() or f"{ref.display_title} has no readable text."
+
         return execute
+
+    async def _generate(self, definition: AgentDefinition, generation: GenerationRequest, url_logger):
+        tools = self._tools(definition)
+        if tools and hasattr(self.ai_service, "generate_with_tools"):
+            generation.tools = tools
+            executor = self._make_tool_executor(definition, url_logger)
+            return await self.ai_service.generate_with_tools(generation, executor)
+        return await self.ai_service.generate(generation)
 
     async def chat(
         self,
@@ -121,6 +194,7 @@ class AgentRunner:
         if not messages:
             raise ValueError("A chat needs at least one message")
 
+        definition = await self.prepare(definition)
         system_prompt = definition.build_system_prompt()
         last_user = next(
             (m.content for m in reversed(messages) if m.role == "user"), ""
@@ -135,11 +209,7 @@ class AgentRunner:
             temperature=temperature,
         )
 
-        if definition.permitted_urls and hasattr(self.ai_service, "generate_with_tools"):
-            executor = self._make_tool_executor(definition, url_logger)
-            result = await self.ai_service.generate_with_tools(generation, executor)
-        else:
-            result = await self.ai_service.generate(generation)
+        result = await self._generate(definition, generation, url_logger)
 
         return AgentRunResult(
             output=result.content,
@@ -164,6 +234,7 @@ class AgentRunner:
         defaults to.
         """
         configuration = self._configuration(definition)
+        definition = await self.prepare(definition)
         system_prompt = definition.build_system_prompt()
 
         generation = GenerationRequest(
@@ -180,11 +251,7 @@ class AgentRunner:
             configuration.model,
         )
 
-        if definition.permitted_urls and hasattr(self.ai_service, "generate_with_tools"):
-            executor = self._make_tool_executor(definition, url_logger)
-            result = await self.ai_service.generate_with_tools(generation, executor)
-        else:
-            result = await self.ai_service.generate(generation)
+        result = await self._generate(definition, generation, url_logger)
 
         return AgentRunResult(
             output=result.content,

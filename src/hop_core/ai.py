@@ -7,7 +7,7 @@ Any concrete AI service (Anthropic, OpenAI, Gemini, ...) satisfies
 :class:`SupportsGenerate` structurally, so no inheritance is required.
 """
 
-from typing import List, Literal, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, List, Literal, Optional, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,15 @@ class ChatMessage(BaseModel):
 
     role: Literal["user", "assistant"]
     content: str
+
+
+class ToolSpec(BaseModel):
+    """A tool the model may call: name, what it does, and a JSON Schema for
+    its arguments. Each provider adapter renders it in its own wire format."""
+
+    name: str
+    description: str
+    parameters: Dict[str, Any]
 
 
 class GenerationRequest(BaseModel):
@@ -34,6 +43,10 @@ class GenerationRequest(BaseModel):
     messages: List[ChatMessage] = Field(default_factory=list)
     max_tokens: Optional[int] = 4096
     temperature: Optional[float] = 0.7
+    # The tools on offer to a tool-calling service. None means the original
+    # single read_url tool, so services written before this field behave as
+    # they always did.
+    tools: Optional[List[ToolSpec]] = None
 
 
 class GenerationResult(Protocol):

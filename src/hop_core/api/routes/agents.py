@@ -23,17 +23,28 @@ from hop_core.models.url_access_log import UrlAccessLog
 from hop_core.core.rate_limit import limiter
 from hop_core.core.security import decrypt_credentials
 from hop_core.db import get_db
-from hop_core.models.agent import Agent, AgentContextFile
+from hop_core.agents.references import (
+    HERETTO_CREDENTIAL_TYPE,
+    heretto_credential as _heretto_credential,
+    heretto_reference_source,
+)
+from hop_core.heretto import HerettoClient, HerettoError
+from hop_core.models.agent import Agent, AgentContextFile, AgentReference
+from hop_core.models.credential import Credential
 from hop_core.schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
     AgentCreate,
     AgentFeedbackAppend,
     AgentFeedbackUpdate,
+    AgentReferenceIn,
     AgentResponse,
     AgentSummaryResponse,
     AgentUpdate,
     AiConfigurationSummary,
+    HerettoConnection,
+    HerettoResolveRequest,
+    HerettoResolveResponse,
 )
 from hop_core.api.dependencies import (
     CurrentUserContext,
@@ -47,6 +58,37 @@ router = APIRouter(prefix="/agents")
 
 # ── Serialization ─────────────────────────────────────────────────────────────
 
+def _permitted_urls(agent: Agent) -> List[str]:
+    """URL references, or the legacy column for agents saved before references."""
+    if agent.references:
+        return [r.url for r in agent.references if r.kind == "url" and r.url]
+    return list(agent.permitted_urls or [])
+
+
+def _references_out(agent: Agent) -> List[dict]:
+    if not agent.references:
+        return [{"kind": "url", "url": url, "guidance": ""} for url in agent.permitted_urls or []]
+    out = []
+    for r in agent.references:
+        out.append({
+            "id": r.id,
+            "kind": r.kind,
+            "guidance": r.guidance or "",
+            "url": r.url,
+            "credential_id": r.credential_id if r.credential is not None else None,
+            "credential_name": r.credential.name if r.credential is not None else None,
+            "file_id": r.file_id,
+            "title": r.title,
+            "path": r.path,
+            "is_map": bool(r.is_map),
+            "reference_type": r.reference_type,
+            # Judged by the row, not the column: SQLite does not enforce the
+            # SET NULL foreign key, so a deleted connection's ID can linger.
+            "available": r.kind == "url" or r.credential is not None,
+        })
+    return out
+
+
 def _summary(agent: Agent) -> dict:
     return {
         "id": agent.id,
@@ -54,7 +96,7 @@ def _summary(agent: Agent) -> dict:
         "description": agent.description,
         "ai_configuration_id": agent.ai_configuration_id,
         "ai_configuration": configurations.describe(agent.ai_configuration),
-        "permitted_urls": agent.permitted_urls or [],
+        "permitted_urls": _permitted_urls(agent),
         "context_file_count": len(agent.context_files),
         "has_feedback_memory": bool((agent.feedback_memory or "").strip()),
         "is_active": agent.is_active,
@@ -78,6 +120,7 @@ def _detail(agent: Agent) -> dict:
             }
             for f in agent.context_files
         ],
+        "references": _references_out(agent),
         "feedback_memory": agent.feedback_memory or "",
     }
 
@@ -151,6 +194,58 @@ def _replace_context_files(agent: Agent, context_files) -> None:
         )
 
 
+def _replace_references(
+    agent: Agent, references: List[AgentReferenceIn], organization_id: UUID, db: Session,
+) -> None:
+    """Make the agent's references exactly the list supplied.
+
+    Heretto references must name a Heretto connection in this organization.
+    The legacy permitted_urls column is emptied: from here on the references
+    are the agent's URL list.
+    """
+    checked = set()
+    for ref in references:
+        if ref.kind == "heretto" and ref.credential_id is not None and ref.credential_id not in checked:
+            if _heretto_credential(ref.credential_id, organization_id, db) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Heretto connection not found in this organization",
+                )
+            checked.add(ref.credential_id)
+
+    agent.references.clear()
+    for index, ref in enumerate(references):
+        agent.references.append(AgentReference(
+            position=index,
+            kind=ref.kind,
+            url=ref.url,
+            credential_id=ref.credential_id,
+            file_id=ref.file_id,
+            title=ref.title,
+            path=ref.path,
+            is_map=ref.is_map,
+            reference_type=ref.reference_type,
+            guidance=ref.guidance,
+        ))
+    agent.permitted_urls = []
+
+
+def _references_with_urls(agent: Agent, urls: List[str]) -> List[AgentReferenceIn]:
+    """An older client sent only permitted_urls: replace the URL references,
+    keep the Heretto ones, and keep guidance on URLs that stay."""
+    guidance = {r.url: r.guidance or "" for r in agent.references if r.kind == "url"}
+    heretto = [
+        AgentReferenceIn(
+            kind="heretto", credential_id=r.credential_id if r.credential is not None else None,
+            file_id=r.file_id, title=r.title,
+            path=r.path, is_map=bool(r.is_map), reference_type=r.reference_type,
+            guidance=r.guidance or "",
+        )
+        for r in agent.references if r.kind == "heretto"
+    ]
+    return [AgentReferenceIn(kind="url", url=u, guidance=guidance.get(u, "")) for u in urls] + heretto
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=List[AgentSummaryResponse])
@@ -162,6 +257,7 @@ async def list_agents(
     # one per agent.
     agents = db.query(Agent).options(
         selectinload(Agent.context_files),
+        selectinload(Agent.references),
         joinedload(Agent.ai_configuration),
     ).filter(
         Agent.organization_id == context.organization_id,
@@ -187,12 +283,16 @@ async def create_agent(
         name=agent_data.name,
         description=agent_data.description,
         ai_configuration_id=agent_data.ai_configuration_id,
-        permitted_urls=agent_data.permitted_urls,
+        permitted_urls=[],
         feedback_memory=agent_data.feedback_memory or "",
         is_active=agent_data.is_active,
         created_by=context.user.email,
     )
     _replace_context_files(agent, agent_data.context_files)
+    references = agent_data.references
+    if references is None:
+        references = [AgentReferenceIn(kind="url", url=u) for u in agent_data.permitted_urls]
+    _replace_references(agent, references, context.organization_id, db)
 
     db.add(agent)
     db.commit()
@@ -218,6 +318,55 @@ async def list_ai_configurations(
             context.organization_id, db
         )
     ]
+
+
+@router.get("/heretto-connections", response_model=List[HerettoConnection])
+async def list_heretto_connections(
+    context: CurrentUserContext = Depends(get_current_active_user_with_org),
+    db: Session = Depends(get_db),
+):
+    """The Heretto connections an agent can read references through."""
+    credentials = db.query(Credential).filter(
+        Credential.organization_id == context.organization_id,
+        Credential.type == HERETTO_CREDENTIAL_TYPE,
+    ).order_by(Credential.name).all()
+    out = []
+    for credential in credentials:
+        try:
+            server_url = str(decrypt_credentials(credential.encrypted_data).get("server_url") or "")
+        except Exception:
+            server_url = ""
+        out.append(HerettoConnection(id=credential.id, name=credential.name, server_url=server_url))
+    return out
+
+
+@router.post("/heretto/resolve", response_model=HerettoResolveResponse)
+@limiter.limit("30/minute")
+async def resolve_heretto_reference(
+    request: Request,
+    body: HerettoResolveRequest,
+    context: CurrentUserContext = Depends(get_current_active_user_with_org),
+    db: Session = Depends(get_db),
+):
+    """Check a pasted Heretto identifier and describe the file it names.
+
+    Accepts a file ID, a Heretto URL containing one, or a repository path.
+    The editor calls this when a reference is added, so a typo is caught then
+    rather than on the agent's next run.
+    """
+    credential = _heretto_credential(body.credential_id, context.organization_id, db)
+    if credential is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Heretto connection not found")
+    try:
+        payload = decrypt_credentials(credential.encrypted_data)
+        async with HerettoClient.from_payload(payload) as client:
+            file = await client.resolve(body.identifier)
+    except HerettoError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message)
+    return HerettoResolveResponse(
+        file_id=file.id.lower(), title=file.display_title, name=file.name,
+        path=file.path, is_map=file.is_map,
+    )
 
 
 @router.get("/{agent_id}", response_model=AgentResponse)
@@ -257,8 +406,13 @@ async def update_agent(
         )
         agent.ai_configuration_id = agent_data.ai_configuration_id
 
-    if agent_data.permitted_urls is not None:
-        agent.permitted_urls = agent_data.permitted_urls
+    if agent_data.references is not None:
+        _replace_references(agent, agent_data.references, context.organization_id, db)
+    elif agent_data.permitted_urls is not None:
+        _replace_references(
+            agent, _references_with_urls(agent, agent_data.permitted_urls),
+            context.organization_id, db,
+        )
 
     if agent_data.feedback_memory is not None:
         agent.feedback_memory = agent_data.feedback_memory
@@ -309,6 +463,7 @@ async def chat_with_agent(
     # always has them — lazy loading is not reliable in the async call path.
     agent = db.query(Agent).options(
         selectinload(Agent.context_files),
+        selectinload(Agent.references),
         joinedload(Agent.ai_configuration),
     ).filter(
         Agent.id == agent_id,
@@ -381,7 +536,9 @@ async def chat_with_agent(
     )
 
     try:
-        result = await AgentRunner(service).chat(
+        result = await AgentRunner(
+            service, reference_source=heretto_reference_source(context.organization_id, db),
+        ).chat(
             definition,
             chat_request.messages,
             max_tokens=chat_request.max_tokens,

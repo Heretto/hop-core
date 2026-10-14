@@ -22,7 +22,14 @@ CRUD lives at ``/api/v1/agents`` (see
 """
 
 from hop_core.agents import configurations
-from hop_core.agents.definition import AgentDefinition, AiConfiguration, ContextFile
+from hop_core.agents.definition import (
+    INCLUDED_REFERENCE_TYPES,
+    REFERENCE_TYPES,
+    AgentDefinition,
+    AgentReferenceSpec,
+    AiConfiguration,
+    ContextFile,
+)
 from hop_core.agents.providers import (
     AiProviderError,
     AiProviderRegistry,
@@ -30,7 +37,10 @@ from hop_core.agents.providers import (
     CredentialAiService,
     GenerationResponse,
     MAX_TOOL_ITERATIONS,
+    READ_HERETTO_TOOL,
+    READ_URL_TOOL,
 )
+from hop_core.agents.references import heretto_reference_source
 from hop_core.agents.runner import (
     AgentNotConfigured,
     AgentRequest,
@@ -47,6 +57,12 @@ from hop_core.agents.urls import (
 __all__ = [
     "configurations",
     "AgentDefinition",
+    "AgentReferenceSpec",
+    "INCLUDED_REFERENCE_TYPES",
+    "REFERENCE_TYPES",
+    "READ_HERETTO_TOOL",
+    "READ_URL_TOOL",
+    "heretto_reference_source",
     "AiConfiguration",
     "AiProviderError",
     "AiProviderRegistry",

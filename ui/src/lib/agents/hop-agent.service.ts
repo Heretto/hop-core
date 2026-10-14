@@ -25,6 +25,49 @@ export interface AgentContextFile {
   position?: number;
 }
 
+/**
+ * How a Heretto reference reaches the agent. Style guides, information models
+ * and terminology are included in every run; general content is read on demand.
+ */
+export type AgentReferenceType = 'general' | 'style_guide' | 'information_model' | 'terminology';
+
+/** Reference material the agent may draw on: a URL, or a file in Heretto. */
+export interface AgentReference {
+  id?: string | null;
+  kind: 'url' | 'heretto';
+  /** The operator's note on how the agent should use this material. */
+  guidance: string;
+  /** kind === 'url': a URL prefix the agent may read. */
+  url?: string | null;
+  /** kind === 'heretto': the Heretto connection (credential) to read through. */
+  credential_id?: string | null;
+  file_id?: string | null;
+  title?: string | null;
+  path?: string | null;
+  /** A map: reading it brings in every topic it links to. */
+  is_map?: boolean;
+  reference_type?: AgentReferenceType | null;
+  /** Response only: the connection's name, and whether it still exists. */
+  credential_name?: string | null;
+  available?: boolean;
+}
+
+/** A Heretto credential an agent can read references through. */
+export interface HerettoConnection {
+  id: string;
+  name: string;
+  server_url: string;
+}
+
+/** What a pasted Heretto identifier resolved to. */
+export interface HerettoResolveResult {
+  file_id: string;
+  title: string;
+  name: string;
+  path?: string | null;
+  is_map: boolean;
+}
+
 /** List-view shape — everything but the context-file bodies. */
 export interface AgentSummary {
   id: string;
@@ -44,6 +87,7 @@ export interface AgentSummary {
 
 export interface Agent extends AgentSummary {
   context_files: AgentContextFile[];
+  references: AgentReference[];
   feedback_memory: string;
 }
 
@@ -52,12 +96,14 @@ export interface AgentCreate {
   description?: string | null;
   ai_configuration_id?: string | null;
   context_files?: AgentContextFile[];
+  /** Older shape; `references` supersedes it and wins when both are sent. */
   permitted_urls?: string[];
+  references?: AgentReference[];
   feedback_memory?: string;
   is_active?: boolean;
 }
 
-/** Partial update. `context_files` and `permitted_urls` replace the whole list. */
+/** Partial update. `context_files` and `references` replace the whole list. */
 export type AgentUpdate = Partial<AgentCreate>;
 
 /** One turn in a test conversation. */
@@ -131,5 +177,17 @@ export class HopAgentService {
   /** The AI configurations an agent can be pointed at. */
   listAiConfigurations(): Observable<AiConfiguration[]> {
     return this.http.get<AiConfiguration[]>(`${this.apiUrl}/agents/ai-configurations`);
+  }
+
+  /** The Heretto connections an agent can read references through. */
+  listHerettoConnections(): Observable<HerettoConnection[]> {
+    return this.http.get<HerettoConnection[]>(`${this.apiUrl}/agents/heretto-connections`);
+  }
+
+  /** Check a pasted Heretto file ID, URL or repository path, and describe the file. */
+  resolveHerettoReference(credentialId: string, identifier: string): Observable<HerettoResolveResult> {
+    return this.http.post<HerettoResolveResult>(`${this.apiUrl}/agents/heretto/resolve`, {
+      credential_id: credentialId, identifier,
+    });
   }
 }
