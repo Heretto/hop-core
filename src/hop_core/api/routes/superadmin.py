@@ -18,6 +18,7 @@ from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationInvitation, user_organizations
 from hop_core.core.security import get_password_hash
 from hop_core.api.dependencies import get_current_superuser
+from hop_core.core.invitations import clear_way_for_invitation, find_user_by_email, normalize_email
 
 router = APIRouter(prefix="/superadmin")
 
@@ -221,7 +222,7 @@ async def add_existing_user_to_org(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    user = db.query(User).filter(User.email == request.email).first()
+    user = find_user_by_email(db, request.email)
     if not user:
         raise HTTPException(status_code=404, detail=f"No user found with email '{request.email}'")
 
@@ -311,7 +312,8 @@ async def invite_user_to_org(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    existing_user = db.query(User).filter(User.email == request.email).first()
+    email = normalize_email(request.email)
+    existing_user = find_user_by_email(db, email)
     if existing_user:
         existing_member = db.execute(
             select(user_organizations).where(
@@ -322,20 +324,14 @@ async def invite_user_to_org(
         if existing_member:
             raise HTTPException(status_code=400, detail="User is already a member of this organization")
 
-    existing_invite = db.query(OrganizationInvitation).filter(
-        OrganizationInvitation.email == request.email,
-        OrganizationInvitation.organization_id == org_id,
-        OrganizationInvitation.accepted_at.is_(None),
-    ).first()
-    if existing_invite:
-        raise HTTPException(status_code=400, detail="An invitation has already been sent to this email")
+    clear_way_for_invitation(db, org_id, email)
 
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
     invitation = OrganizationInvitation(
         organization_id=org_id,
-        email=request.email,
+        email=email,
         role=request.role,
         token=token,
         invited_by=current_user.id,

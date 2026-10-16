@@ -7,18 +7,11 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from hop_core.db import get_db
-
-
-def _is_expired(expires_at: datetime) -> bool:
-    """Compare invitation expiry against now, handling naive (SQLite) datetimes."""
-    now = datetime.now(timezone.utc)
-    if expires_at.tzinfo is None:
-        return expires_at < now.replace(tzinfo=None)
-    return expires_at < now
 from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationMember, OrganizationInvitation
 from hop_core.core.security import get_password_hash, verify_password
 from hop_core.core.rate_limit import limiter
+from hop_core.core.invitations import find_user_by_email, is_expired as _is_expired
 from hop_core.api.dependencies import reject_password_auth_if_sso_only
 
 router = APIRouter(prefix="/invitations")
@@ -141,7 +134,7 @@ async def accept_invitation_new_user(
     if not organization:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
 
-    user = db.query(User).filter(User.email == invitation.email).first()
+    user = find_user_by_email(db, invitation.email)
 
     if not user:
         user = User(
@@ -222,7 +215,7 @@ async def accept_invitation_existing_user(
             detail="This invitation has expired",
         )
 
-    user = db.query(User).filter(User.email == invitation.email).first()
+    user = find_user_by_email(db, invitation.email)
 
     if not user:
         raise HTTPException(
