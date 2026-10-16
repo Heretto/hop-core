@@ -42,7 +42,7 @@ def _clean_test_db():
 
 @pytest.fixture(scope="session")
 def app(_clean_test_db):
-    return create_hop_app(settings_factory=_get_test_settings)
+    return create_hop_app(settings_factory=_get_test_settings, include_dtd_sets_router=True)
 
 
 @pytest.fixture(scope="session")

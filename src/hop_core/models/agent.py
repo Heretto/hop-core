@@ -77,6 +77,8 @@ class Agent(Base):
         cascade="all, delete-orphan",
         order_by="AgentReference.position",
     )
+    # The agent's own DTD set; None means it follows the organization default.
+    dtd_set_choice = relationship("AgentDtdSet", uselist=False, cascade="all, delete-orphan")
 
 
 class AgentContextFile(Base):

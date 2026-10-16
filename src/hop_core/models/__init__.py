@@ -6,6 +6,7 @@ from hop_core.models.organization import Organization, OrganizationMember, Organ
 from hop_core.models.credential import Credential
 from hop_core.models.agent import Agent, AgentContextFile, AgentReference
 from hop_core.models.url_access_log import UrlAccessLog
+from hop_core.models.dtd_set import AgentDtdSet, DtdSet, DtdSetVersion
 
 __all__ = [
     "OrganizationRole",
@@ -19,4 +20,7 @@ __all__ = [
     "AgentContextFile",
     "AgentReference",
     "UrlAccessLog",
+    "DtdSet",
+    "DtdSetVersion",
+    "AgentDtdSet",
 ]

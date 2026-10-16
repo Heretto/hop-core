@@ -52,7 +52,9 @@ GRAMMAR_SUFFIXES = (".dtd", ".mod", ".ent")
 _CATALOG_NS = "urn:oasis:names:tc:entity:xmlns:xml:catalog"
 _IGNORED_PARTS = ("__MACOSX",)
 
-Progress = Callable[[int, str], None]   # (step index 0-5, detail)
+# (step index 0-5, detail). Called with an empty detail when a step starts,
+# then with its result — so the latest index reported is the step running.
+Progress = Callable[[int, str], None]
 
 
 class PackageError(Exception):
@@ -101,6 +103,14 @@ class PackageReport:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "PackageReport":
+        data = dict(data or {})
+        data["document_types"] = [DocumentType(**d) for d in data.get("document_types") or []]
+        data["issues"] = [PackageIssue(**i) for i in data.get("issues") or []]
+        known = set(cls.__dataclass_fields__)
+        return cls(**{k: v for k, v in data.items() if k in known})
 
     def dtd_set(self, root: Path, name: str = "DITA") -> DtdSet:
         """The validation grammar this package provides, unpacked at ``root``.
@@ -494,6 +504,25 @@ def test_parse(root: Path, catalog: Optional[Path], document_types: List[Documen
 
 # ── The pipeline ──────────────────────────────────────────────────────────────
 
+def index_directory(root: Path) -> PackageReport:
+    """Steps 3–5 on grammar already on disk: catalog, references, document
+    types. No unpacking and no test-parse — for grammar hop-core ships."""
+    report = PackageReport()
+    report.grammar_file_count = len(_grammar_files(root))
+    report.file_count = sum(1 for p in root.rglob("*") if p.is_file())
+    catalog = find_catalog(root)
+    if catalog is None:
+        raise PackageError("No XML catalog found.", 2, report)
+    report.catalog = catalog.relative_to(root).as_posix()
+    entries = read_catalog(catalog, root, report.issues)
+    public = _check_duplicates(entries, report.issues)
+    report.public_id_count = len(public)
+    report.resolved_count, report.reference_count = resolve_references(
+        root, public, entries, report.issues, lambda done, total: None)
+    report.document_types, report.based_on = index_document_types(root, public, report.issues)
+    return report
+
+
 def process_package(archive: Path, dest: Path, progress: Optional[Progress] = None) -> PackageReport:
     """Run all six steps on ``archive``, unpacking it into ``dest``.
 
@@ -513,6 +542,7 @@ def _process(archive: Path, dest: Path, report: PackageReport, progress: Optiona
     size = archive.stat().st_size
     say(0, f"{size / (1024 * 1024):.1f} MB")
 
+    say(1, "")
     report.file_count = unpack(archive, dest)
     grammar = _grammar_files(dest)
     report.grammar_file_count = len(grammar)
@@ -520,6 +550,7 @@ def _process(archive: Path, dest: Path, report: PackageReport, progress: Optiona
         raise PackageError("No .dtd, .mod or .ent files found in the zip.", 1)
     say(1, f"{report.file_count} files: {len(grammar)} grammar files")
 
+    say(2, "")
     catalog = find_catalog(dest)
     if catalog is None:
         raise PackageError("No XML catalog found in the zip.", 2)
@@ -531,17 +562,20 @@ def _process(archive: Path, dest: Path, report: PackageReport, progress: Optiona
         raise PackageError("The XML catalog maps no public IDs.", 2)
     say(2, f"{report.catalog} · {report.public_id_count} public IDs")
 
+    say(3, "")
     report.resolved_count, report.reference_count = resolve_references(
         dest, public, entries, report.issues,
         lambda done, total: say(3, f"{done} of {total} resolved"))
     say(3, f"{report.resolved_count} of {report.reference_count} resolved")
 
+    say(4, "")
     report.document_types, report.based_on = index_document_types(dest, public, report.issues)
     if not report.document_types:
         raise PackageError("The catalog lists no document-type shells (public IDs containing \"//DTD\").", 4)
     specialized = sum(1 for d in report.document_types if d.kind == "specialized")
     say(4, f"{len(report.document_types)} document types · {specialized} specialized")
 
+    say(5, "")
     test_parse(dest, catalog, report.document_types, report.issues,
                lambda done, total: say(5, f"{done} of {total} parsed"))
     if not any(d.parses for d in report.document_types):
