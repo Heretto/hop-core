@@ -54,6 +54,12 @@ class DtdSet:
     root: Path
     shells: Mapping[str, str]
     name: str = "DITA"
+    # An OASIS XML catalog resolving the public IDs the shells use. Uploaded
+    # sets rely on one; the bundled set resolves by relative path and has none.
+    catalog: Optional[Path] = None
+    # Public ID -> shell, so content whose DOCTYPE names one is validated
+    # against exactly that shell rather than whichever shares its root.
+    public_ids: Mapping[str, str] = field(default_factory=dict)
 
     @classmethod
     def oasis_dita_1_3(cls, root: Optional[Path] = None) -> "DtdSet":
@@ -64,6 +70,13 @@ class DtdSet:
         """The shell DTD for ``root_element``, or None if the set has none
         (or its file is missing)."""
         relative = self.shells.get(root_element)
+        if relative is None:
+            return None
+        path = (Path(self.root) / relative).resolve()
+        return path if path.is_file() else None
+
+    def shell_for_public_id(self, public_id: str) -> Optional[Path]:
+        relative = self.public_ids.get(public_id)
         if relative is None:
             return None
         path = (Path(self.root) / relative).resolve()
