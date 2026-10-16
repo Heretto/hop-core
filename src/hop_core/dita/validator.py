@@ -1,4 +1,9 @@
-"""DITA 1.3 validator with DTD validation (xmllint) and structural fallback."""
+"""DITA 1.3 validator with DTD validation (xmllint) and structural fallback.
+
+Grammar comes from a :class:`~hop_core.dita.grammar.DtdSet` — the bundled
+OASIS DITA 1.3 technical-content shells by default — and every root element is
+validated against its own full shell, domains included.
+"""
 
 import logging
 import os
@@ -15,6 +20,8 @@ except ImportError as exc:  # pragma: no cover - exercised only without the extr
         "hop_core.dita requires lxml. Install it with: pip install 'hop-core[dita]'"
     ) from exc
 
+from hop_core.dita.grammar import DtdSet, xmllint_profile
+
 logger = logging.getLogger(__name__)
 
 # Bundled OASIS DITA 1.3 grammar files (package data).
@@ -24,16 +31,9 @@ _DEFAULT_DTD_DIR = Path(__file__).parent / "resources" / "org.oasis-open.dita.v1
 class DitaValidator:
     """DITA 1.3 validator with DTD support and deterministic auto-fixes."""
 
-    # Map topic types to DTD file paths relative to dtd_dir
-    DTD_FILES = {
-        "topic": "dtd/technicalContent/dtd/topic.dtd",
-        "concept": "dtd/technicalContent/dtd/concept.dtd",
-        "task": "dtd/technicalContent/dtd/task.dtd",
-        "reference": "dtd/technicalContent/dtd/reference.dtd",
-        "troubleshooting": "dtd/technicalContent/dtd/troubleshooting.dtd",
-        "glossentry": "dtd/technicalContent/dtd/glossentry.dtd",
-        "glossgroup": "dtd/technicalContent/dtd/glossgroup.dtd"
-    }
+    # Root element -> shell DTD (relative to dtd_dir) for the bundled grammar.
+    # An instance's copy reflects its own DtdSet; this is what is validated.
+    DTD_FILES = dict(DtdSet.oasis_dita_1_3().shells)
 
     # Valid DITA 1.3 root (topic-type) elements. A conforming DITA document must
     # have one of these as its root element — a <section> (or other body-level
@@ -43,15 +43,19 @@ class DitaValidator:
         'glossentry', 'glossgroup', 'generalTask'
     }
 
-    def __init__(self, dtd_dir: Union[str, Path, None] = None):
-        """Initialize validator with optional DTD directory.
+    def __init__(self, dtd_dir: Union[str, Path, None] = None, dtd_set: Optional[DtdSet] = None):
+        """Initialize the validator.
 
-        Defaults to the OASIS DITA 1.3 grammar files bundled with hop-core.
+        ``dtd_set`` names the grammar to validate against — a directory and the
+        shell for each root element. It defaults to the OASIS DITA 1.3 shells
+        bundled with hop-core; ``dtd_dir`` points that default at another copy
+        of the same layout.
         """
-        if dtd_dir is None:
-            dtd_dir = _DEFAULT_DTD_DIR
-
-        self.dtd_dir = str(dtd_dir)
+        if dtd_set is None:
+            dtd_set = DtdSet.oasis_dita_1_3(Path(dtd_dir) if dtd_dir is not None else _DEFAULT_DTD_DIR)
+        self.dtd_set = dtd_set
+        self.dtd_dir = str(dtd_set.root)
+        self.DTD_FILES = dict(dtd_set.shells)
         self.dtd_cache = {}
 
         # Log DTD directory location
@@ -61,10 +65,13 @@ class DitaValidator:
             logger.warning(f"DTD directory not found at: {self.dtd_dir}")
 
     def _dtd_available(self, topic_type: str = "topic") -> bool:
-        """Check if DTD file is available for the topic type."""
-        dtd_relative_path = self.DTD_FILES.get(topic_type, self.DTD_FILES["topic"])
-        dtd_path = os.path.join(self.dtd_dir, dtd_relative_path)
-        return os.path.exists(dtd_path)
+        """Check if a shell DTD is available for the topic type."""
+        return self._shell_for(topic_type) is not None
+
+    def _shell_for(self, topic_type: str) -> Optional[str]:
+        """The shell DTD for ``topic_type``, falling back to the topic shell."""
+        path = self.dtd_set.shell_path(topic_type) or self.dtd_set.shell_path("topic")
+        return str(path) if path is not None else None
 
     def _get_dtd(self, topic_type: str = "topic") -> Optional[etree.DTD]:
         """Return None — DITA 1.3 DTDs exceed lxml's entity amplification limit.
@@ -76,40 +83,18 @@ class DitaValidator:
     # xmllint-based DTD validation
     # ------------------------------------------------------------------
 
-    _XMLLINT_AVAILABLE: Optional[bool] = None  # class-level cache
-
     @classmethod
     def _xmllint_available(cls) -> bool:
-        """Return True if xmllint is present on PATH."""
-        if cls._XMLLINT_AVAILABLE is None:
-            try:
-                subprocess.run(
-                    ["xmllint", "--version"],
-                    capture_output=True,
-                    timeout=5,
-                )
-                cls._XMLLINT_AVAILABLE = True
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                cls._XMLLINT_AVAILABLE = False
-        return cls._XMLLINT_AVAILABLE
+        """True if an xmllint that can load DITA grammar is installed.
 
-    # DTD files that work with xmllint (no SVG entity loop).
-    # - topic uses basetopic.dtd because topic.dtd includes svgDomain.mod which
-    #   has an entity reference loop that xmllint cannot resolve.
-    # - concept/task/reference use *-nosvg.dtd variants (generated from the
-    #   originals with SVG domain sections stripped out).
-    _XMLLINT_DTD_FILES = {
-        "topic": "dtd/base/dtd/basetopic.dtd",
-        "concept": "dtd/technicalContent/dtd/concept-nosvg.dtd",
-        "task": "dtd/technicalContent/dtd/task-nosvg.dtd",
-        "reference": "dtd/technicalContent/dtd/reference-nosvg.dtd",
-    }
+        See :mod:`hop_core.dita.grammar` for which libxml2 versions can.
+        """
+        profile = xmllint_profile()
+        return profile is not None and profile.usable
 
     def _dtd_path_for_xmllint(self, topic_type: str) -> Optional[str]:
-        """Return the DTD path suitable for xmllint, or None if not found."""
-        relative = self._XMLLINT_DTD_FILES.get(topic_type, self._XMLLINT_DTD_FILES["topic"])
-        path = os.path.join(self.dtd_dir, relative)
-        return path if os.path.exists(path) else None
+        """Return the shell DTD xmllint validates ``topic_type`` against, or None."""
+        return self._shell_for(topic_type)
 
     def _inject_system_doctype(self, content: str, topic_type: str, dtd_path: str) -> str:
         """Replace the DOCTYPE declaration with a local SYSTEM identifier."""
@@ -129,7 +114,7 @@ class DitaValidator:
         return doctype + '\n' + stripped
 
     def _validate_with_xmllint(self, content: str, topic_type: str = "topic") -> Tuple[Optional[bool], Optional[List[str]]]:
-        """Validate against the DITA 1.3 base DTD using xmllint.
+        """Validate against the root element's shell DTD using xmllint.
 
         Returns (True, None) on success, (False, errors) on failure,
         or (None, None) when xmllint / DTD files are unavailable.
@@ -152,8 +137,10 @@ class DitaValidator:
             tmp.write(validated_xml)
             tmp.close()
 
+            # --nocatalogs: a system XML catalog must not swap in other DITA DTDs
+            # for the public identifiers the shells use.
             result = subprocess.run(
-                ["xmllint", "--valid", "--noout", tmp.name],
+                ["xmllint", "--nocatalogs", *xmllint_profile().args, "--valid", "--noout", tmp.name],
                 capture_output=True,
                 text=True,
                 timeout=30,
