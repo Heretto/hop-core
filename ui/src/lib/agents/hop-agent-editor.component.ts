@@ -34,6 +34,8 @@ const FOLLOW_DEFAULT = '';
 const INCLUDED_TYPES: AgentReferenceType[] = ['style_guide', 'information_model', 'terminology'];
 import { HopAgentChatComponent } from './hop-agent-chat.component';
 import { HopAccountService } from '../shared/hop-account.service';
+import { HerettoFile, HerettoFileKind } from '../heretto/hop-heretto.service';
+import { HopHerettoFileFieldComponent } from '../heretto/hop-heretto-file-field.component';
 import {
   DtdSetDetail, DtdSetList, HopDtdSetService, dtdSetOptionLabel, dtdSetUsable,
 } from '../dtd-sets/hop-dtd-set.service';
@@ -46,7 +48,7 @@ import {
     CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatTabsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonToggleModule, MatSlideToggleModule,
     MatTooltipModule, MatProgressSpinnerModule, MatSnackBarModule,
-    HopAgentChatComponent, RouterLink,
+    HopAgentChatComponent, HopHerettoFileFieldComponent, RouterLink,
   ],
   template: `
     <div class="editor-container hop-page">
@@ -291,15 +293,11 @@ import {
                           </mat-option>
                         </mat-select>
                       </mat-form-field>
-                      <mat-form-field appearance="outline" class="full-width">
-                        <mat-label>Heretto file</mat-label>
-                        <input matInput [formControl]="herettoIdControl"
-                               placeholder="File ID, Heretto URL, or repository path"
-                               (keydown.enter)="addReference(); $event.preventDefault()">
-                        <mat-hint *ngIf="!herettoError">
-                          A topic or a map — a map brings in every topic it links to.
-                        </mat-hint>
-                      </mat-form-field>
+                      <hop-heretto-file-field class="heretto-file" label="Heretto file"
+                          [formControl]="herettoFileControl" [credentialId]="herettoConnectionControl.value"
+                          [accept]="referenceKinds" purpose="Choose a topic or map for the agent to reference"
+                          hint="A topic or a map — a map brings in every topic it links to."
+                          (fileChange)="herettoError = ''"></hop-heretto-file-field>
                       <p class="error-text field-error" *ngIf="herettoError">{{ herettoError }}</p>
                       <mat-form-field appearance="outline" class="full-width">
                         <mat-label>Type</mat-label>
@@ -319,10 +317,7 @@ import {
                   </mat-form-field>
 
                   <div class="add-row" *ngIf="addKind === 'url' || herettoConnections.length > 0">
-                    <button mat-stroked-button type="button" [disabled]="resolving" (click)="addReference()">
-                      <mat-spinner diameter="18" *ngIf="resolving"></mat-spinner>
-                      <span *ngIf="!resolving">Add reference</span>
-                    </button>
+                    <button mat-stroked-button type="button" (click)="addReference()">Add reference</button>
                   </div>
                 </div>
 
@@ -577,10 +572,10 @@ export class HopAgentEditorComponent implements OnInit {
   addKind: 'url' | 'heretto' = 'url';
   urlControl = this.fb.control('');
   herettoConnectionControl = this.fb.control<string | null>(null);
-  herettoIdControl = this.fb.control('');
+  herettoFileControl = this.fb.control<HerettoFile | null>(null);
+  readonly referenceKinds: HerettoFileKind[] = ['topic', 'map'];
   newTypeControl = this.fb.control<AgentReferenceType>('general');
   newGuidanceControl = this.fb.control('');
-  resolving = false;
   herettoError = '';
 
   form = this.fb.group({
@@ -834,44 +829,32 @@ export class HopAgentEditorComponent implements OnInit {
     this.pushReference({ kind: 'url', url: raw, guidance: this.newGuidance() });
   }
 
-  /** Checked against Heretto before it is added, so a typo shows up now
-   *  rather than on the agent's next run. */
+  /** The field checked the file against Heretto when it was pasted or browsed to. */
   private addHerettoReference(): void {
-    const identifier = (this.herettoIdControl.value ?? '').trim();
-    const credentialId = this.herettoConnectionControl.value;
-    if (!identifier || !credentialId || this.resolving) return;
-
-    this.resolving = true;
-    this.herettoError = '';
-    this.agentService.resolveHerettoReference(credentialId, identifier).subscribe({
-      next: file => {
-        this.resolving = false;
-        const duplicate = this.references.some(
-          ref => ref.kind === 'heretto' && ref.credential_id === credentialId && ref.file_id === file.file_id,
-        );
-        if (duplicate) {
-          this.herettoError = `${file.title} is already on the list.`;
-        } else {
-          this.pushReference({
-            kind: 'heretto',
-            credential_id: credentialId,
-            credential_name: this.herettoConnections.find(c => c.id === credentialId)?.name ?? null,
-            file_id: file.file_id,
-            title: file.title,
-            path: file.path ?? null,
-            is_map: file.is_map,
-            reference_type: this.newTypeControl.value ?? 'general',
-            guidance: this.newGuidance(),
-            available: true,
-          });
-        }
-        this.cdr.markForCheck();
-      },
-      error: error => {
-        this.resolving = false;
-        this.herettoError = error?.error?.detail || 'Could not check that file in Heretto.';
-        this.cdr.markForCheck();
-      },
+    const file = this.herettoFileControl.value;
+    const credentialId = file?.credential_id ?? null;
+    if (!file || !credentialId) {
+      this.herettoError = 'Choose a Heretto file first: paste its ID, URL or path, or browse for it.';
+      return;
+    }
+    const duplicate = this.references.some(
+      ref => ref.kind === 'heretto' && ref.credential_id === credentialId && ref.file_id === file.id,
+    );
+    if (duplicate) {
+      this.herettoError = `${file.title} is already on the list.`;
+      return;
+    }
+    this.pushReference({
+      kind: 'heretto',
+      credential_id: credentialId,
+      credential_name: file.credential_name,
+      file_id: file.id,
+      title: file.title,
+      path: file.path ?? null,
+      is_map: file.is_map,
+      reference_type: this.newTypeControl.value ?? 'general',
+      guidance: this.newGuidance(),
+      available: true,
     });
   }
 
@@ -887,7 +870,7 @@ export class HopAgentEditorComponent implements OnInit {
 
   private resetAddForm(): void {
     this.urlControl.reset('');
-    this.herettoIdControl.reset('');
+    this.herettoFileControl.reset(null);
     this.newGuidanceControl.reset('');
     this.newTypeControl.reset('general');
     this.herettoError = '';

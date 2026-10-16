@@ -24,13 +24,12 @@ from hop_core.core.rate_limit import limiter
 from hop_core.core.security import decrypt_credentials
 from hop_core.db import get_db
 from hop_core.agents.references import (
-    HERETTO_CREDENTIAL_TYPE,
+    heretto_connections,
     heretto_credential as _heretto_credential,
     heretto_reference_source,
 )
 from hop_core.heretto import HerettoClient, HerettoError
 from hop_core.models.agent import Agent, AgentContextFile, AgentReference
-from hop_core.models.credential import Credential
 from hop_core.models.dtd_set import BUILTIN_DTD_SET_ID, AgentDtdSet
 from hop_core.models.dtd_set import DtdSet as DtdSetModel
 from hop_core.schemas.agent import (
@@ -358,12 +357,8 @@ async def list_heretto_connections(
     db: Session = Depends(get_db),
 ):
     """The Heretto connections an agent can read references through."""
-    credentials = db.query(Credential).filter(
-        Credential.organization_id == context.organization_id,
-        Credential.type == HERETTO_CREDENTIAL_TYPE,
-    ).order_by(Credential.name).all()
     out = []
-    for credential in credentials:
+    for credential in heretto_connections(context.organization_id, db):
         try:
             server_url = str(decrypt_credentials(credential.encrypted_data).get("server_url") or "")
         except Exception:

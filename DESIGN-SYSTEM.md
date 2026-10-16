@@ -462,9 +462,11 @@ Everything importable from `@heretto/hop-ui`:
 | `HopCredentialEditorDialogComponent` | `hop-credential-editor-dialog` | Schema-driven add/edit credential form (opened by HopCredentials) | `MatDialog` data: `HopCredentialEditorDialogData` |
 | `HopCredentialTestDialogComponent` | `hop-credential-test-dialog` | Connection-test result: status, timing, request line, response body in a code panel | `MatDialog` data: `HopCredentialTestDialogData` |
 | `HopAgentsComponent` | `hop-agents` | Agent list: the whole card opens the agent; an overflow menu holds duplicate, activate, delete | — |
-| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, references (URLs and Heretto files with a type and guidance, checked against Heretto when added), memory, and a Test tab. A **DTD Set** select on the Validation section (when the app mounts `/dtd-sets`): "Organization default" or a specific usable set, with a summary of the effective set and its warnings. Routed: `new` or `:agentId` | via route params |
+| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, references (URLs and Heretto files with a type and guidance, checked against Heretto when added), memory, and a Test tab. Heretto references are chosen with `hop-heretto-file-field`. A **DTD Set** select on the Validation section (when the app mounts `/dtd-sets`): "Organization default" or a specific usable set, with a summary of the effective set and its warnings. Routed: `new` or `:agentId` | via route params |
 | `HopAgentChatComponent` | `hop-agent-chat` | Chat panel for testing an agent; shows the system prompt that produced each reply | `agentId: string \| null`, `agentName: string`, `hasConfiguration: boolean`, `dirty: boolean` |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
+| `HopHerettoFileFieldComponent` | `hop-heretto-file-field` | Form control for one Heretto file (`ControlValueAccessor`, value `HerettoFile \| null`). Empty: paste a file ID, Heretto URL or repository path (checked on Enter/blur; a wrong path lists the folder and offers "Browse this folder") or **Browse…** (filled button when `required`). Chosen: a card with title, location, type · connection, **Change** and **Remove** | `label`, `hint`, `purpose` (browser subtitle), `dialogTitle?`, `accept: HerettoFileKind[] \| null`, `credentialId: string \| null` (else the org's first; the browser offers all), `required = false`, `placeholder`, `credentialsLink?`; output `fileChange` |
+| `HopHerettoBrowserDialogComponent` | `hop-heretto-browser-dialog` | Heretto file browser — connection and repository selects, find by name (filters the folder; **Include subfolders** searches below it, bounded and says when it stopped early), breadcrumbs with up and type-a-path, folder/file list with kinds outside `accept` greyed, a details pane (title, location, modified, ID with copy, Open in Heretto), Select file. Remembers the last folder per connection. Open it with `openHerettoFileBrowser(dialog, data)` → `Observable<HerettoFile \| undefined>` | `MatDialog` data: `HopHerettoBrowserDialogData` |
 | `HopDitaContentComponent` | `hop-dita-content` | Rendered DITA topic (DITA-OT HTML5 markup) styled by the theme. Sanitizes with a DITA-aware allowlist (Angular's strips the `id`s xrefs and footnotes need); `#fragment` links scroll in place, other links emit `linkClick` first — call `event.preventDefault()` to route them yourself | `html: string` (from `hop_core.dita.DitaRenderer`) **or** `dita: string` (raw XML, rendered via `POST /dita/render` — needs `include_dita_router=True`), `exclude?: DitaExclusions`, `headingOffset = 0`; outputs `rendered: RenderedDitaTopic`, `linkClick: HopDitaLinkEvent` |
 | `HopDataTableComponent` | `hop-data-table` | Standard data table: header-click sorting on every column (opt out per column), optional text filter across columns with a match count and a no-matches row, horizontal scroll on narrow screens. Custom cells via `<ng-template hopCell="key" let-row>` (`HopTableCellDirective` — import it alongside). Put it in a `mat-card` for the standard framed look | `columns: HopTableColumn[]`, `data: T[]`, `filterable = false`, `filterPlaceholder = 'Filter'`, `sortActive: string \| null = null` (initial sort column), `sortDirection: 'asc' \| 'desc' = 'asc'`, `emptyText = 'No data'` |
 | `HopConfirmDialogComponent` | `hop-confirm-dialog` | Reusable confirm dialog | `MatDialog` data: `HopConfirmDialogData` |
@@ -540,6 +542,11 @@ type DitaExclusions = Record<string, string[]>;   // { audience: ['expert'] }
 interface DitaRenderRequest { content: string; exclude?: DitaExclusions; show_draft?: boolean; heading_offset?: number; }
 interface RenderedDitaTopic { html: string; title: string; shortdesc: string | null; topic_id: string | null; topic_type: string; lang: string | null; warnings: string[]; }
 interface HopDitaLinkEvent { href: string; external: boolean; event: MouseEvent; }
+type HerettoFileKind = 'map' | 'topic' | 'image' | 'other';
+interface HerettoFile { id: string; name: string; title: string; kind: HerettoFileKind; is_map: boolean; path?: string | null; folder_id?: string | null; mime_type?: string | null; status?: string | null; last_modified?: string | null /* ISO */; editor_url?: string | null; credential_id: string; credential_name: string; }
+interface HopHerettoBrowserDialogData { title?: string; purpose?: string; accept?: HerettoFileKind[] | null; credentialId?: string | null /* lock to one connection */; fileId?: string | null /* open at it, selected */; folderId?: string | null; selectLabel?: string; credentialsLink?: string | null /* default '/credentials'; null hides */; }
+interface HerettoFailure { message: string; reason: 'credentials' | 'not_found' | 'error'; folder_id?: string | null; }
+// Also: HerettoEntry, HerettoFolderListing, HerettoFolderRef, HerettoRepository, HerettoSearchMatch, HerettoSearchResult
 type HopTableValue = string | number | boolean | Date | null | undefined;
 interface HopTableColumn<T = any> { key: string; label: string; sortable?: boolean /* default true */; filterable?: boolean /* default true */; value?: (row: T) => HopTableValue /* default row[key]; drives display (without a hopCell), sorting and filtering */; align?: 'start' | 'end'; }
 ```
@@ -601,6 +608,19 @@ HopAgentService {
   chat(agentId, request: AgentChatRequest): Observable<AgentChatResponse>;  // stores nothing
 }
 // AgentCreate / AgentSummary carry dtd_set_id: string | null (null = organization default)
+
+// HopHerettoService — browse Heretto through the org's Heretto connections (/heretto, mounted by default)
+class HopHerettoService {
+  connections(): Observable<HerettoConnection[]>;
+  repositories(credentialId): Observable<HerettoRepository[]>;
+  openRepository(credentialId, branch, repository): Observable<HerettoFolderListing>;
+  openFolder(credentialId, folderId, ancestors = false): Observable<HerettoFolderListing>;
+  resolveFolder(credentialId, repo, path): Observable<HerettoFolderListing>;
+  search(credentialId, folderId, query): Observable<HerettoSearchResult>;   // by name, folder and below; .truncated
+  file(credentialId, fileId): Observable<HerettoFile>;
+  resolve(credentialId, identifier): Observable<HerettoFile>;              // file ID, Heretto URL or repository path
+}
+// Helpers: herettoFailure(httpError) → HerettoFailure, HERETTO_KIND_LABELS, openHerettoFileBrowser(dialog, data)
 
 // HopDtdSetService — uploaded DTD sets (needs include_dtd_sets_router=True on the backend)
 class HopDtdSetService {
