@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import {
   FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators,
 } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -29,8 +29,14 @@ const REFERENCE_TYPES: { value: AgentReferenceType; label: string }[] = [
   { value: 'information_model', label: 'Information model' },
   { value: 'terminology', label: 'Terminology / glossary' },
 ];
+/** The DTD Set select's "Organization default" choice; saved as null. */
+const FOLLOW_DEFAULT = '';
 const INCLUDED_TYPES: AgentReferenceType[] = ['style_guide', 'information_model', 'terminology'];
 import { HopAgentChatComponent } from './hop-agent-chat.component';
+import { HopAccountService } from '../shared/hop-account.service';
+import {
+  DtdSetDetail, DtdSetList, HopDtdSetService, dtdSetOptionLabel, dtdSetUsable,
+} from '../dtd-sets/hop-dtd-set.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -40,7 +46,7 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
     CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatTabsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonToggleModule, MatSlideToggleModule,
     MatTooltipModule, MatProgressSpinnerModule, MatSnackBarModule,
-    HopAgentChatComponent,
+    HopAgentChatComponent, RouterLink,
   ],
   template: `
     <div class="editor-container hop-page">
@@ -106,6 +112,30 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
                     here.
                   </mat-hint>
                 </mat-form-field>
+
+                <ng-container *ngIf="dtdSets">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>DTD Set</mat-label>
+                    <mat-select formControlName="dtd_set_id">
+                      <mat-option [value]="followDefault">Organization default ({{ defaultSetLabel() }})</mat-option>
+                      <mat-option *ngFor="let set of dtdSets.sets" [value]="set.id" [disabled]="!dtdSetUsable(set)">
+                        {{ dtdSetOptionLabel(set) }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-hint>
+                      The DTDs this agent validates DITA content against.<ng-container *ngIf="isAdmin$ | async"> Managed under
+                      <a routerLink="/admin" [queryParams]="{ section: 'dtd-sets' }">Administration › DTD sets</a>.</ng-container>
+                    </mat-hint>
+                  </mat-form-field>
+                  <div class="dtd-info" *ngIf="effectiveSet as set">
+                    <ng-container *ngIf="!form.get('dtd_set_id')?.value">Follows the organization default if an admin changes it. </ng-container>
+                    {{ dtdSetSummary(set) }}
+                    <span class="dtd-warning" *ngIf="set.issues.length">
+                      ⚠ {{ set.issues.length }} warning{{ set.issues.length === 1 ? '' : 's' }}: {{ set.issues[0].title }}.
+                      <a *ngIf="isAdmin$ | async" [routerLink]="['/admin/dtd-sets', set.id]">Review warnings</a>
+                    </span>
+                  </div>
+                </ng-container>
 
                 <div class="toggle-row">
                   <mat-slide-toggle formControlName="is_active">Active</mat-slide-toggle>
@@ -467,12 +497,10 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
     .context-file-edit-actions { display: flex; align-items: center; gap: 8px; }
     .markdown-input { font-family: var(--font-mono); font-size: 0.9rem; line-height: 1.5; }
 
-    .reference-add {
-      padding: 16px; margin-bottom: 20px;
-      border: 1px solid var(--border-default); border-radius: 8px;
-      background: var(--surface-sunken);
-    }
-    .reference-add mat-button-toggle-group { margin-bottom: 4px; }
+    .dtd-info, .reference-add { padding: 16px; border-radius: 8px; background: var(--surface-sunken); }
+    .dtd-info { margin: 4px 0 16px; color: var(--text-secondary); }
+    .dtd-warning { display: block; margin-top: 6px; color: var(--color-warning-text); }
+    .reference-add { margin-bottom: 20px; border: 1px solid var(--border-default); }
     .reference-add mat-button-toggle mat-icon { font-size: 18px; height: 18px; width: 18px; vertical-align: -4px; }
     .add-row { display: flex; justify-content: flex-end; }
     .notice {
@@ -484,7 +512,7 @@ import { HopAgentChatComponent } from './hop-agent-chat.component';
     .reference-list { list-style: none; margin: 0; padding: 0; }
     .reference-list li {
       display: flex; align-items: flex-start; gap: 12px;
-      padding: 14px 6px 14px 4px;
+      padding: 14px 4px;
       border-bottom: 1px solid var(--border-light);
     }
     .reference-list li:last-child { border-bottom: none; }
@@ -524,6 +552,16 @@ export class HopAgentEditorComponent implements OnInit {
   private router = inject(Router);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
+  private dtdSetService = inject(HopDtdSetService);
+  readonly isAdmin$ = inject(HopAccountService).isAdmin$;
+
+  /** Null when the app didn't mount the DTD-set routes; the field is hidden. */
+  dtdSets: DtdSetList | null = null;
+  /** The set that applies with the current selection (the default when none). */
+  effectiveSet: DtdSetDetail | null = null;
+  readonly dtdSetUsable = dtdSetUsable;
+  readonly followDefault = FOLLOW_DEFAULT;
+  readonly dtdSetOptionLabel = dtdSetOptionLabel;
 
   agent: Agent | null = null;
   aiConfigurations: AiConfiguration[] = [];
@@ -549,6 +587,8 @@ export class HopAgentEditorComponent implements OnInit {
     name: ['', Validators.required],
     description: [''],
     ai_configuration_id: this.fb.control<string | null>(null),
+    // FOLLOW_DEFAULT rather than null: mat-select shows nothing for a null value.
+    dtd_set_id: this.fb.control<string>(FOLLOW_DEFAULT),
     is_active: [true],
     feedback_memory: [''],
     context_files: this.fb.array<FormGroup>([]),
@@ -572,6 +612,8 @@ export class HopAgentEditorComponent implements OnInit {
   ngOnInit(): void {
     this.loadAiConfigurations();
     this.loadHerettoConnections();
+    this.loadDtdSets();
+    this.form.get('dtd_set_id')!.valueChanges.subscribe(() => this.loadEffectiveSet());
 
     // Read from paramMap rather than a snapshot so the page stays correct if
     // it is ever routed to from another agent without being torn down.
@@ -595,7 +637,7 @@ export class HopAgentEditorComponent implements OnInit {
     this.urlControl.reset('');
     this.contextFiles.clear();
     this.form.reset({
-      name: '', description: '', ai_configuration_id: null,
+      name: '', description: '', ai_configuration_id: null, dtd_set_id: FOLLOW_DEFAULT,
       is_active: true, feedback_memory: '',
     });
   }
@@ -609,6 +651,7 @@ export class HopAgentEditorComponent implements OnInit {
           name: agent.name,
           description: agent.description ?? '',
           ai_configuration_id: agent.ai_configuration_id ?? null,
+          dtd_set_id: agent.dtd_set_id ?? FOLLOW_DEFAULT,
           is_active: agent.is_active,
           feedback_memory: agent.feedback_memory ?? '',
         });
@@ -639,6 +682,40 @@ export class HopAgentEditorComponent implements OnInit {
     this.agentService.listAiConfigurations().pipe(
       catchError(() => of([] as AiConfiguration[])),
     ).subscribe(configurations => { this.aiConfigurations = configurations; this.cdr.markForCheck(); });
+  }
+
+  private loadDtdSets(): void {
+    this.dtdSetService.list().subscribe({
+      next: list => { this.dtdSets = list; this.loadEffectiveSet(); this.cdr.markForCheck(); },
+      error: () => { this.dtdSets = null; this.cdr.markForCheck(); },
+    });
+  }
+
+  private loadEffectiveSet(): void {
+    if (!this.dtdSets) return;
+    const id = this.form.get('dtd_set_id')?.value || this.dtdSets.default_id;
+    this.dtdSetService.get(id).subscribe({
+      next: set => { this.effectiveSet = set; this.cdr.markForCheck(); },
+      error: () => { this.effectiveSet = null; this.cdr.markForCheck(); },
+    });
+  }
+
+  defaultSetLabel(): string {
+    const set = this.dtdSets?.sets.find(s => s.id === this.dtdSets?.default_id);
+    return set ? (set.builtin ? set.name : this.dtdSetOptionLabel(set)) : '';
+  }
+
+  /** "Validates 31 document types: the DITA 1.3 base types plus 7 specializations, including apiRef, …" */
+  dtdSetSummary(set: DtdSetDetail): string {
+    const total = set.document_types.length;
+    const specialized = set.document_types.filter(t => t.kind === 'specialized');
+    if (!specialized.length) {
+      return `Validates ${total} standard ${set.builtin ? 'OASIS DITA 1.3' : (set.based_on ?? 'DITA')} document types.`;
+    }
+    const names = specialized.slice(0, 3).map(t => t.root);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+    const base = set.based_on ? `the ${set.based_on} base types` : 'the base types';
+    return `Validates ${total} document types: ${base} plus ${specialized.length} specialization${specialized.length === 1 ? '' : 's'}, including ${list}.`;
   }
 
   /** Only populates the Heretto picker; a failure leaves it empty. */
@@ -839,6 +916,8 @@ export class HopAgentEditorComponent implements OnInit {
       name: (value.name ?? '').trim(),
       description: (value.description ?? '').trim() || null,
       ai_configuration_id: value.ai_configuration_id ?? null,
+      // Only sent when the app has DTD sets, so an app without them never clears a choice.
+      ...(this.dtdSets ? { dtd_set_id: value.dtd_set_id || null } : {}),
       context_files: this.contextFiles.controls.map((group, index) => ({
         name: (group.get('name')?.value ?? '').trim(),
         content: group.get('content')?.value ?? '',

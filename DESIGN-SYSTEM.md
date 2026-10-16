@@ -454,12 +454,15 @@ Everything importable from `@heretto/hop-ui`:
 | `HopAcceptInvitationComponent` | `hop-accept-invitation` | Accept org invitation (`/invite/:token`) | — |
 | `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet | `appTitle: string`, `logoSrc?: string` (brand image, 36px tall, far left; with `appTitle` set the app name renders beside it after a thin divider — set `appTitle=""` for logo-only; without `logoSrc` the brand falls back to icon + name), `navItems: NavItem[]` |
 | `HopAccountComponent` | `hop-account` | Profile editor (email, password, delete) | — |
-| `HopAdminComponent` | `hop-admin` | Org admin: members + invitations tabs | — |
+| `HopAdminComponent` | `hop-admin` | Org admin with a side nav: General (organization name), Users (members + invitations tabs), DTD sets (shown only when the app mounts `/dtd-sets`). The section is the `?section=general\|users\|dtd-sets` query param (default `users`) | — |
+| `HopDtdSetsComponent` | `hop-dtd-sets` | DTD sets section of HopAdmin: organization-default select, sets table (status chips, row menu: open, upload new version, make default, download), upload button, packaging guidance. Refreshes while anything is processing | outputs `countChange: number` |
+| `HopDtdSetDetailComponent` | `hop-dtd-set-detail` | One DTD set: processing banner, warnings, document types (base vs. specialized), package, agents using it, versions with restore/download, delete. Routed: `admin/dtd-sets/:dtdSetId` | via route params |
+| `HopDtdUploadDialogComponent` | `hop-dtd-upload-dialog` | Upload a set or a new version: drop zone + name/version/description, then the six processing steps live | `MatDialog` data: `HopDtdUploadDialogData` (`maxUploadMb`, `setId?`, `setName?`); result: `HopDtdUploadDialogResult` |
 | `HopCredentialsComponent` | `hop-credentials` | Credential management: a tab per registered type or group, forms built from each type's field spec, per-row connection testing | — |
 | `HopCredentialEditorDialogComponent` | `hop-credential-editor-dialog` | Schema-driven add/edit credential form (opened by HopCredentials) | `MatDialog` data: `HopCredentialEditorDialogData` |
 | `HopCredentialTestDialogComponent` | `hop-credential-test-dialog` | Connection-test result: status, timing, request line, response body in a code panel | `MatDialog` data: `HopCredentialTestDialogData` |
 | `HopAgentsComponent` | `hop-agents` | Agent list: the whole card opens the agent; an overflow menu holds duplicate, activate, delete | — |
-| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, references (URLs and Heretto files with a type and guidance, checked against Heretto when added), memory, and a Test tab. Routed: `new` or `:agentId` | via route params |
+| `HopAgentEditorComponent` | `hop-agent-editor` | Full-page agent editor — AI configuration select, context files, references (URLs and Heretto files with a type and guidance, checked against Heretto when added), memory, and a Test tab. A **DTD Set** select on the Validation section (when the app mounts `/dtd-sets`): "Organization default" or a specific usable set, with a summary of the effective set and its warnings. Routed: `new` or `:agentId` | via route params |
 | `HopAgentChatComponent` | `hop-agent-chat` | Chat panel for testing an agent; shows the system prompt that produced each reply | `agentId: string \| null`, `agentName: string`, `hasConfiguration: boolean`, `dirty: boolean` |
 | `HopInviteDialogComponent` | `hop-invite-dialog` | Invite-member dialog (opened by HopAdmin) | via `MatDialog` |
 | `HopDitaContentComponent` | `hop-dita-content` | Rendered DITA topic (DITA-OT HTML5 markup) styled by the theme. Sanitizes with a DITA-aware allowlist (Angular's strips the `id`s xrefs and footnotes need); `#fragment` links scroll in place, other links emit `linkClick` first — call `event.preventDefault()` to route them yourself | `html: string` (from `hop_core.dita.DitaRenderer`) **or** `dita: string` (raw XML, rendered via `POST /dita/render` — needs `include_dita_router=True`), `exclude?: DitaExclusions`, `headingOffset = 0`; outputs `rendered: RenderedDitaTopic`, `linkClick: HopDitaLinkEvent` |
@@ -597,6 +600,21 @@ HopAgentService {
   resolveHerettoReference(credentialId, identifier): Observable<HerettoResolveResult>;  // file ID, Heretto URL or repository path
   chat(agentId, request: AgentChatRequest): Observable<AgentChatResponse>;  // stores nothing
 }
+// AgentCreate / AgentSummary carry dtd_set_id: string | null (null = organization default)
+
+// HopDtdSetService — uploaded DTD sets (needs include_dtd_sets_router=True on the backend)
+class HopDtdSetService {
+  list(): Observable<DtdSetList>;                         // { default_id, max_upload_mb, sets } — default first; 404 when not mounted
+  get(id): Observable<DtdSetDetail>;                       // issues, document_types, package, agents, versions
+  setDefault(id): Observable<DtdSetList>;
+  upload(file, name, version, description?): Observable<DtdSetVersion>;   // processing continues; poll getVersion
+  uploadVersion(id, file, version): Observable<DtdSetVersion>;
+  getVersion(id, versionId): Observable<DtdSetVersion>;    // .steps: DtdSetStep[] (done|running|pending|failed)
+  restore(id, versionId): Observable<DtdSetDetail>;
+  downloadUrl(id, versionId): string;
+  delete(id): Observable<{message}>;                       // 409 while default or used by agents
+}
+// Helpers: BUILTIN_DTD_SET_ID ('oasis-dita-1.3'), dtdSetOptionLabel(set), dtdSetUsable(set)
 
 HopDitaService {
   render(content, options?: Omit<DitaRenderRequest, 'content'>): Observable<RenderedDitaTopic>;  // POST /dita/render
@@ -622,7 +640,7 @@ HopCredentialService {
 | `hopSuperuserGuard` | `CanActivateFn` | Requires system superuser |
 | `hopAuthInterceptor` | `HttpInterceptorFn` | Attaches Bearer token, auto-refreshes on 401 |
 | `HOP_API_URL` | `InjectionToken<string>` | API base URL, defaults `/api/v1` — provide to override |
-| `HOP_ROUTES` | `Routes` | Prebuilt: `login`, `forgot-password`, `reset-password`, `auth/sso/complete`, `invite/:token`, `account` (auth-guarded), `admin` (auth+admin-guarded) |
+| `HOP_ROUTES` | `Routes` | Prebuilt: `login`, `forgot-password`, `reset-password`, `auth/sso/complete`, `invite/:token`, `account` (auth-guarded), `admin` and `admin/dtd-sets/:dtdSetId` (auth+admin-guarded) |
 | `HOP_AGENT_ROUTES` | `Routes` | Agent pages — `''` (list), `new`, `:agentId`. Mount as `children` of any path; componentless, so they render in the existing outlet |
 
 ---
@@ -666,6 +684,7 @@ export const routes: Routes = [
       { path: 'dashboard', loadComponent: () => import('./dashboard/dashboard.component').then(m => m.DashboardComponent) },
       { path: 'account', loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAccountComponent) },
       { path: 'admin', canActivate: [hopAdminGuard], loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAdminComponent) },
+      { path: 'admin/dtd-sets/:dtdSetId', canActivate: [hopAdminGuard], loadComponent: () => import('@heretto/hop-ui').then(m => m.HopDtdSetDetailComponent) },  // with include_dtd_sets_router
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

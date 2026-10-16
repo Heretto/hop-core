@@ -471,7 +471,8 @@ grep -n "include_object\|OUR_TABLES\|target_metadata" migrations/env.py
 **Why.** Your models and hop-core's share one declarative `Base`, so
 `target_metadata` covers `users`, `organizations`, `organization_members`,
 `organization_invitations`, `credentials`, `agents`, `agent_context_files`,
-`agent_references` and `url_access_logs` as well as your own. Unfiltered,
+`agent_references`, `url_access_logs`, `dtd_sets`, `dtd_set_versions` and
+`agent_dtd_sets` as well as your own. Unfiltered,
 `alembic revision --autogenerate` writes migrations against hop-core's schema —
 measured on a real app, thirteen spurious `modify_type` operations, because
 hop-core's UUID columns reflect out of SQLite as `NUMERIC`. Those migrations
@@ -676,3 +677,46 @@ sign-ups.
 **Fix.** Configure a provider, set `SSO_ONLY=true` and your tenant ID, then sign
 in through SSO on the deployed app as an existing admin before telling anyone
 else.
+
+## 12. DTD sets
+
+Organizations can upload their own DITA grammar (README, "DTD sets"). It is
+opt-in: `create_hop_app(include_dtd_sets_router=True)`.
+
+**Check**
+
+```bash
+python -c "import lxml; print('dita extra ok')"
+xmllint --version 2>&1 | head -1            # libxml2 <= 2.10 or >= 2.12; 2.11 cannot load DITA grammars
+grep -rn "dtd-sets/:dtdSetId\|HOP_ROUTES" src/app/   # the detail page is routed
+curl -s -o /dev/null -w '%{http_code}\n' https://<app>/api/v1/dtd-sets   # 401 means mounted; 404 means not
+```
+
+**Why, item by item.**
+
+- **The `dita` extra and `xmllint`.** Uploads are unpacked, indexed and
+  test-parsed on the server. Without `xmllint` a set still processes, with a
+  warning that its document types weren't test-parsed, and validation falls
+  back to structural checks.
+- **Route the detail page.** Apps using `HOP_ROUTES` get
+  `admin/dtd-sets/:dtdSetId`. Apps with their own routes must add it next to
+  `admin` (DESIGN-SYSTEM.md skeleton) — otherwise opening a set lands on the
+  wildcard redirect.
+- **Raise the proxy's body limit.** Uploads go up to `DTD_UPLOAD_MAX_MB`
+  (default 50). nginx's `client_max_body_size` defaults to 1 MB, so a real
+  package fails with a 413 from the proxy before the app sees it. Set the
+  proxy's limit at least as high as `DTD_UPLOAD_MAX_MB`.
+- **Validate with the organization's grammar.** Code that validates DITA for
+  an agent or organization should get its validator from
+  `hop_core.dtd_sets.validator_for(db, organization_id, agent_id)` rather than
+  constructing `DitaValidator()`, which always uses the built-in OASIS set.
+- **Processing is in-process.** It runs as a background task in the worker
+  that received the upload, typically a few seconds. A worker restart
+  mid-upload leaves the version failed (marked at the next startup); upload it
+  again. Archives live in the database, unpacked into `HOP_DTD_CACHE_DIR`
+  (default: the system temp dir) — that directory needs no volume, just write
+  access.
+
+**Fix.** Install the extra and a supported `xmllint`, mount the router, route
+the detail page, and match the proxy's body limit — then upload a package on
+the deployed app and check that it reaches **Ready**.

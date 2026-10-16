@@ -22,6 +22,8 @@ A batteries-included platform library for building AI-powered content creation a
 | **Admin** | Development-only admin endpoints for inspecting app state |
 | **DITA** | `hop_core.dita` (install the `hop-core[dita]` extra) — DITA 1.3 validation with bundled OASIS grammars (`DitaValidator`: DTD validation via `xmllint`, structural fallback, deterministic auto-fixes) and AI-driven correction (`DitaCorrectionService`: validate→correct loop with any injected AI service). For full DTD validation install `xmllint` (`apt-get install libxml2-utils` / `brew install libxml2`) from libxml2 2.10 or earlier, or 2.12 or later; without it — or on libxml2 2.11, which cannot load the DITA grammar — the validator falls back to structural checks. Each root element is validated against its full OASIS technical-content shell; `DitaValidator(dtd_set=DtdSet(...))` validates against another grammar directory instead. Also DITA → HTML rendering modeled on DITA-OT's HTML5 transform (`DitaRenderer`: every topic type, conref/keyref/filtering hooks, output safe to insert into a page), with an opt-in `POST /dita/render` route (`create_hop_app(include_dita_router=True)`). |
 
+Also **DTD sets**: organization admins upload their own DITA grammar — a zip of shells and modules with an XML catalog — and hop-core checks it, indexes its document types (specializations included), and validates against it. See [DTD sets](#dtd-sets).
+
 ### Frontend (`@heretto/hop-ui` Angular library)
 
 | Component / Service | What you get |
@@ -32,7 +34,8 @@ A batteries-included platform library for building AI-powered content creation a
 | `HopAcceptInvitationComponent` | Invitation acceptance flow (new and existing users) |
 | `HopSsoCallbackComponent` | Handles OAuth redirect callbacks |
 | `HopAccountComponent` | Profile editor (email, password change) |
-| `HopAdminComponent` | Organization member management with invite dialog |
+| `HopAdminComponent` | Organization administration with a section nav: General (organization name), Users (members, invitations) and, when the app mounts them, DTD sets |
+| `HopDtdSetsComponent`, `HopDtdSetDetailComponent`, `HopDtdUploadDialogComponent` + `HopDtdSetService` | DTD set administration — the organization default, the sets list, upload with live processing steps, and each set's warnings, document types, versions and usage |
 | `HopCredentialsComponent` | Credential management — a tab per registered type, forms built from each type's declared fields, one-click connection testing |
 | `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, references, memory, and a chat panel for testing the agent |
 | `HopDitaContentComponent` + `HopDitaService` | `<hop-dita-content>` shows rendered DITA — `[html]` from your backend's `DitaRenderer`, or `[dita]` rendered via `POST /dita/render` — styled by the theme, with in-topic links scrolling in place and other links reported through `(linkClick)` |
@@ -166,6 +169,8 @@ app = create_hop_app(
     include_credentials_router=True,    # generic credentials CRUD (default: True)
                                         # set False if you add type-specific routes
     include_agents_router=True,         # agent configuration CRUD (default: True)
+    include_dita_router=False,          # POST /dita/render (needs the dita extra)
+    include_dtd_sets_router=False,      # /dtd-sets: uploaded DTD sets (needs the dita extra)
 )
 ```
 
@@ -709,6 +714,71 @@ navigates back relatively, so mounting the set under any path works.
 
 ---
 
+## DTD sets
+
+Organizations can validate DITA against their own grammar — specializations,
+constrained shells, their own domains — instead of only the OASIS DITA 1.3
+grammar hop-core bundles. An admin uploads it under **Administration › DTD
+sets**; apps and agents validate against it from then on.
+
+Mount the routes and install the `dita` extra (and `xmllint`, see the DITA
+row above):
+
+```python
+app = create_hop_app(settings_factory=get_settings, include_dtd_sets_router=True)
+```
+
+**What a package is.** One zip per set, with folder structure kept so relative
+references keep working: every `.dtd`, `.mod` and `.ent` file the document
+types need, and a `catalog.xml` mapping public IDs to files (the catalog
+nearest the root is used; `nextCatalog` is followed). Zipping a DITA-OT
+plugin's `dtd` folder works as is.
+
+**What happens to it.** Processing runs in the background after the upload
+returns, and the upload dialog shows each step:
+
+1. **Upload received** — up to `DTD_UPLOAD_MAX_MB` (default 50).
+2. **Unpack archive** — paths outside the package, symlinks and oversized
+   contents are refused.
+3. **Find XML catalog** — a public ID mapped to two files is a warning; the
+   first entry wins, as catalog resolution does.
+4. **Resolve references** — every catalog entry and every external parameter
+   entity a grammar file uses must reach a file; ones that don't are warnings
+   with file and line.
+5. **Compile grammars** — each shell's document type is indexed: its root
+   element, and whether it's a standard OASIS type or a specialization (and of
+   what), read from the `class` attributes the modules declare.
+6. **Test-parse each document type** — every shell is loaded with `xmllint`.
+
+Warnings don't block a set. A package with nothing usable — no catalog, no
+shells, nothing that loads — fails, with the reason shown in the list.
+
+**Versions.** Each upload is a version. The version apps use moves only when
+a new one processes successfully, so a bad upload never breaks validation;
+an earlier version can be restored. A set can't be deleted while it's the
+organization default or an agent uses it.
+
+**Which set applies.** An agent's own choice (the **DTD Set** field in the
+agent editor), else the organization default, else the built-in OASIS set —
+skipping any that has no usable version. Host apps get the right validator
+for a job with:
+
+```python
+from hop_core.dtd_sets import validator_for
+
+validator = validator_for(db, organization_id, agent_id=agent.id)
+valid, errors = validator.validate_with_dtd(content)
+```
+
+Content whose DOCTYPE names a public ID in the set is validated against that
+exact shell; otherwise the shell for its root element is used.
+
+**Storage.** Zips are stored in the database and unpacked on demand into a
+local cache (`HOP_DTD_CACHE_DIR`, default under the system temp directory), so
+nothing new needs a volume, and a restart or another replica only costs an
+unzip. Processing runs in the process that received the upload; one
+interrupted by a restart is marked failed at the next startup.
+
 ## API reference
 
 All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`).
@@ -752,6 +822,15 @@ All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`
 | `GET` | `/agents` | ✓ | List agents (summaries) |
 | `POST` | `/agents` | ✓ | Create agent |
 | `GET` | `/agents/ai-configurations` | ✓ | AI configurations an agent can select |
+| `GET` | `/dtd-sets` | ✓ | DTD sets (built-in included), the organization default, the upload limit |
+| `PUT` | `/dtd-sets/default` | admin | Set the organization default |
+| `POST` | `/dtd-sets` | admin | Upload a set (multipart: `file`, `name`, `version`, `description`); 202, processed in the background |
+| `GET` | `/dtd-sets/{id}` | ✓ | A set's warnings, document types, package, agents and versions |
+| `POST` | `/dtd-sets/{id}/versions` | admin | Upload a new version |
+| `GET` | `/dtd-sets/{id}/versions/{version_id}` | ✓ | A version's processing steps (what the upload dialog polls) |
+| `POST` | `/dtd-sets/{id}/versions/{version_id}/restore` | admin | Make an earlier version current |
+| `GET` | `/dtd-sets/{id}/versions/{version_id}/download` | ✓ | The uploaded zip |
+| `DELETE` | `/dtd-sets/{id}` | admin | Delete a set nothing uses |
 | `GET` | `/agents/heretto-connections` | ✓ | Heretto connections references can be read through |
 | `POST` | `/agents/heretto/resolve` | ✓ | Check a Heretto file ID, URL or repository path and describe the file |
 | `GET` | `/agents/{id}` | ✓ | Get agent with context files and memory |

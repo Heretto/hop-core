@@ -77,6 +77,8 @@ export interface AgentSummary {
   /** Resolved for display; null when unset or the credential was deleted. */
   ai_configuration?: AiConfiguration | null;
   permitted_urls: string[];
+  /** null when the agent follows the organization default DTD set. */
+  dtd_set_id?: string | null;
   context_file_count: number;
   has_feedback_memory: boolean;
   is_active: boolean;
@@ -99,6 +101,8 @@ export interface AgentCreate {
   /** Older shape; `references` supersedes it and wins when both are sent. */
   permitted_urls?: string[];
   references?: AgentReference[];
+  /** The DTD set this agent validates DITA against; null follows the organization default. */
+  dtd_set_id?: string | null;
   feedback_memory?: string;
   is_active?: boolean;
 }
