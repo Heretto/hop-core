@@ -72,6 +72,11 @@ export const routes: Routes = [
         canActivate: [hopAdminGuard],
         loadComponent: () => import('@heretto/hop-ui').then(m => m.HopAdminComponent),
       },
+      {
+        path: 'admin/dtd-sets/:dtdSetId',
+        canActivate: [hopAdminGuard],
+        loadComponent: () => import('@heretto/hop-ui').then(m => m.HopDtdSetDetailComponent),
+      },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

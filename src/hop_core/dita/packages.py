@@ -504,6 +504,14 @@ def test_parse(root: Path, catalog: Optional[Path], document_types: List[Documen
 
 # ── The pipeline ──────────────────────────────────────────────────────────────
 
+def _size_text(size: int) -> str:
+    return f"{size / (1024 * 1024):.1f} MB" if size >= 1024 * 1024 else f"{max(1, round(size / 1024))} KB"
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" + ("" if count == 1 else "s")
+
+
 def index_directory(root: Path) -> PackageReport:
     """Steps 3–5 on grammar already on disk: catalog, references, document
     types. No unpacking and no test-parse — for grammar hop-core ships."""
@@ -539,8 +547,7 @@ def process_package(archive: Path, dest: Path, progress: Optional[Progress] = No
 
 def _process(archive: Path, dest: Path, report: PackageReport, progress: Optional[Progress]) -> PackageReport:
     say = progress or (lambda step, detail: None)
-    size = archive.stat().st_size
-    say(0, f"{size / (1024 * 1024):.1f} MB")
+    say(0, _size_text(archive.stat().st_size))
 
     say(1, "")
     report.file_count = unpack(archive, dest)
@@ -548,7 +555,7 @@ def _process(archive: Path, dest: Path, report: PackageReport, progress: Optiona
     report.grammar_file_count = len(grammar)
     if not grammar:
         raise PackageError("No .dtd, .mod or .ent files found in the zip.", 1)
-    say(1, f"{report.file_count} files: {len(grammar)} grammar files")
+    say(1, f"{_plural(report.file_count, 'file')}: {_plural(len(grammar), 'grammar file')}")
 
     say(2, "")
     catalog = find_catalog(dest)

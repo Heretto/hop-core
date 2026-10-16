@@ -54,6 +54,7 @@ class StepState(BaseModel):
 
 class DtdSetVersionInfo(BaseModel):
     id: str
+    dtd_set_id: str
     label: str
     filename: str
     size_bytes: int

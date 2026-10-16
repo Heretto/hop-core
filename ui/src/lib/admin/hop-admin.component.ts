@@ -15,11 +15,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HopOrganizationService, Organization, OrganizationMember, OrganizationInvitation } from '../shared/hop-organization.service';
 import { HopAccountService } from '../shared/hop-account.service';
 import { HopConfirmDialogComponent } from '../shared/hop-confirm-dialog.component';
 import { HopInviteDialogComponent } from './hop-invite-dialog.component';
 import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-dialog.component';
+import { HopDtdSetService } from '../dtd-sets/hop-dtd-set.service';
+import { HopDtdSetsComponent } from '../dtd-sets/hop-dtd-sets.component';
+
+/** The admin page's sections, kept in the URL as ?section=. */
+export type HopAdminSection = 'general' | 'users' | 'dtd-sets';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -29,13 +35,34 @@ import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-di
     CommonModule, ReactiveFormsModule, MatCardModule, MatTableModule, MatButtonModule,
     MatIconModule, MatTabsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDialogModule, MatSnackBarModule, MatProgressSpinnerModule, MatChipsModule,
-    MatTooltipModule, MatMenuModule,
+    MatTooltipModule, MatMenuModule, HopDtdSetsComponent,
   ],
   template: `
-    <div class="admin-container">
-      <h1>Organization Administration</h1>
+    <div class="hop-page admin">
+      <h1>Organization administration</h1>
+      <p class="page-intro">
+        <ng-container *ngIf="organization">{{ organization.name }} · </ng-container>Manage the organization,
+        its people<ng-container *ngIf="dtdSetsAvailable">, and the content standards its apps validate against</ng-container>.
+      </p>
 
-      <mat-card class="org-info-card">
+      <div class="admin-layout">
+        <nav class="admin-nav" aria-label="Administration sections">
+          <div class="nav-group">Organization</div>
+          <button type="button" [class.active]="section === 'general'" (click)="select('general')">General</button>
+          <button type="button" [class.active]="section === 'users'" (click)="select('users')">
+            Users <span class="nav-count">{{ members.length }}</span>
+          </button>
+          <ng-container *ngIf="dtdSetsAvailable">
+            <div class="nav-group">Content</div>
+            <button type="button" [class.active]="section === 'dtd-sets'" (click)="select('dtd-sets')">
+              DTD sets <span class="nav-count" *ngIf="dtdSetCount !== null">{{ dtdSetCount }}</span>
+            </button>
+          </ng-container>
+        </nav>
+
+        <div class="admin-section">
+      <!-- General -->
+      <mat-card class="org-info-card" *ngIf="section === 'general'">
         <mat-card-header>
           <mat-card-title>{{ organization?.name }}</mat-card-title>
           <mat-card-subtitle>Organization Settings</mat-card-subtitle>
@@ -56,9 +83,8 @@ import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-di
         </mat-card-content>
       </mat-card>
 
-      <mat-tab-group>
-        <!-- Members Tab -->
-        <mat-tab label="Members">
+      <!-- Users -->
+      <div *ngIf="section === 'users'">
           <div class="tab-content">
             <div class="members-header">
               <h2>Organization Members ({{ members.length }})</h2>
@@ -120,10 +146,7 @@ import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-di
               <mat-icon>group_off</mat-icon><p>No members found</p>
             </div>
           </div>
-        </mat-tab>
 
-        <!-- Invitations Tab -->
-        <mat-tab label="Pending Invitations">
           <div class="tab-content">
             <div class="invitations-header">
               <h2>Pending Invitations ({{ invitations.length }})</h2>
@@ -175,15 +198,36 @@ import { HopInviteSuccessDialogComponent } from '../shared/hop-invite-success-di
               <mat-icon>mail_outline</mat-icon><p>No pending invitations</p>
             </div>
           </div>
-        </mat-tab>
-      </mat-tab-group>
+      </div>
+
+      <!-- DTD sets -->
+      <hop-dtd-sets *ngIf="section === 'dtd-sets' && dtdSetsAvailable"
+                    (countChange)="dtdSetCount = $event"></hop-dtd-sets>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
-    .admin-container { max-width: 1200px; margin: 0 auto; }
+    .page-intro { color: var(--text-secondary); margin: 4px 0 24px; }
+    .admin-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+    .admin-nav { display: flex; flex-direction: column; gap: 2px; }
+    .nav-group {
+      margin: 12px 0 6px 12px; color: var(--text-tertiary);
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .nav-group:first-child { margin-top: 0; }
+    .admin-nav button {
+      display: flex; justify-content: space-between; align-items: center; width: 100%;
+      padding: 9px 12px; border: none; border-radius: 8px; background: transparent;
+      font: inherit; color: var(--text-primary); text-align: left; cursor: pointer;
+    }
+    .admin-nav button:hover { background: var(--hover-overlay); }
+    .admin-nav button.active { background: var(--active-overlay); font-weight: 500; }
+    .nav-count { color: var(--text-tertiary); font-size: 0.82rem; }
     .org-info-card { margin-bottom: 24px; }
+    @media (max-width: 768px) { .admin-layout { grid-template-columns: 1fr; } }
     .full-width { width: 100%; }
-    .tab-content { padding: 24px; }
+    .tab-content { padding: 0 0 32px; }
     .members-header, .invitations-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .members-table, .invitations-table { width: 100%; background: transparent; }
     .loading-card { display: flex; justify-content: center; align-items: center; min-height: 200px; text-align: center; }
@@ -200,6 +244,14 @@ export class HopAdminComponent implements OnInit {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private dtdSetService = inject(HopDtdSetService);
+
+  section: HopAdminSection = 'users';
+  /** False when the app didn't mount the DTD-set routes; the section is hidden. */
+  dtdSetsAvailable = false;
+  dtdSetCount: number | null = null;
 
   organization: Organization | null = null;
   members: OrganizationMember[] = [];
@@ -215,9 +267,22 @@ export class HopAdminComponent implements OnInit {
   orgForm = this.fb.group({ name: ['', Validators.required] });
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe(params => {
+      const section = params.get('section') as HopAdminSection | null;
+      this.section = section && ['general', 'users', 'dtd-sets'].includes(section) ? section : 'users';
+      this.cdr.markForCheck();
+    });
     this.loadOrganization();
     this.loadMembers();
     this.loadInvitations();
+    this.dtdSetService.list().subscribe({
+      next: list => { this.dtdSetsAvailable = true; this.dtdSetCount = list.sets.length; this.cdr.markForCheck(); },
+      error: () => { this.dtdSetsAvailable = false; this.cdr.markForCheck(); },
+    });
+  }
+
+  select(section: HopAdminSection): void {
+    this.router.navigate([], { relativeTo: this.route, queryParams: { section }, replaceUrl: true });
   }
 
   private loadOrganization(): void {

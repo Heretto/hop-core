@@ -93,7 +93,7 @@ def _summary(db: Session, org: Organization, dtd_set: DtdSet) -> DtdSetSummary:
 
 def _version_info(dtd_set: DtdSet, version: DtdSetVersion) -> DtdSetVersionInfo:
     return DtdSetVersionInfo(
-        id=str(version.id), label=version.label, filename=version.filename,
+        id=str(version.id), dtd_set_id=str(dtd_set.id), label=version.label, filename=version.filename,
         size_bytes=version.size_bytes, status=version.status, step=version.step,
         error=version.error, is_current=version.id == dtd_set.current_version_id,
         uploaded_by=version.uploaded_by, created_at=version.created_at,

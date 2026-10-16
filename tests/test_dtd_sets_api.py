@@ -60,6 +60,7 @@ def ready_set(client, admin, acme_zip):
     resp = upload(client, admin["headers"], acme_zip)
     assert resp.status_code == 202, resp.text
     set_id = next(s["id"] for s in listing(client, admin["headers"])["sets"] if s["name"] == "Acme Product DITA")
+    assert resp.json()["dtd_set_id"] == set_id
     return set_id, resp.json()["id"]
 
 
