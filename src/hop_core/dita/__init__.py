@@ -3,11 +3,13 @@
 Requires the ``dita`` extra: ``pip install 'hop-core[dita]'`` (lxml). DTD
 validation additionally uses the ``xmllint`` binary when present on PATH
 (``apt-get install libxml2-utils`` / ``brew install libxml2``) and falls back
-to structural validation otherwise.
+to structural validation otherwise — including on libxml2 2.11, which cannot
+load the DITA grammar (see :mod:`hop_core.dita.grammar`).
 """
 
 from hop_core.dita.ai import GenerationRequest, GenerationResult, SupportsGenerate
 from hop_core.dita.correction import DitaCorrectionService
+from hop_core.dita.grammar import DtdSet
 from hop_core.dita.renderer import (
     DitaParseError,
     DitaRenderer,
@@ -21,6 +23,7 @@ from hop_core.dita.validator import DitaValidator
 
 __all__ = [
     "DitaValidator",
+    "DtdSet",
     "DitaCorrectionService",
     "DitaRenderer",
     "DitaParseError",

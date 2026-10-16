@@ -509,6 +509,11 @@ one writes revisions by hand regardless.
 ## 7. Runtime constraints
 
 - **Python 3.11+.**
+- **DITA DTD validation needs `xmllint` from libxml2 ≤ 2.10 or ≥ 2.12.** 2.11 caps
+  entity expansion below what the DITA grammar needs and cannot raise the cap, so
+  `DitaValidator` silently falls back to structural checks there (it logs a
+  warning). Check with `xmllint --version`: `libxml version 211xx` is the bad
+  band. Debian bookworm (2.9) and current Debian/Alpine (2.12+) are fine.
 - **Angular 22 and Node ≥ 22.22.3 or ≥ 24.15** for the frontend.
   `@heretto/hop-ui` peers on `^22`, so an app on an older Angular fails to
   install it, and the Angular 22 CLI refuses older Node.

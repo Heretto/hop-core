@@ -70,11 +70,10 @@ class TestPackagedResources:
             f"Bundled DTD directory not found: {validator.dtd_dir}"
         )
 
-    def test_xmllint_dtds_present(self, validator):
-        for topic_type, relative in DitaValidator._XMLLINT_DTD_FILES.items():
-            path = os.path.join(validator.dtd_dir, relative)
-            assert os.path.exists(path), (
-                f"Missing bundled DTD for {topic_type!r}: {relative}"
+    def test_shell_dtds_present(self, validator):
+        for topic_type, relative in validator.dtd_set.shells.items():
+            assert validator.dtd_set.shell_path(topic_type) is not None, (
+                f"Missing bundled shell DTD for {topic_type!r}: {relative}"
             )
 
     def test_reference_dtds_present(self, validator):
@@ -254,8 +253,6 @@ class TestStructuralFallback:
 
     def test_falls_back_when_xmllint_unavailable(self, validator):
         with patch.object(DitaValidator, "_xmllint_available", return_value=False):
-            # Reset the class-level cache so the mock takes effect
-            DitaValidator._XMLLINT_AVAILABLE = None
             with patch.object(validator, "_validate_with_xmllint", return_value=(None, None)):
                 valid, errors = validator.validate_with_dtd(VALID_TOPIC)
                 # Structural validation should pass for a well-formed topic
