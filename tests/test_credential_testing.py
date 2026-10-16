@@ -1,5 +1,6 @@
 """Tests for credential connection testing."""
 
+import base64
 import json
 import uuid
 import pytest
@@ -219,15 +220,36 @@ class TestJiraTester:
 
 
 class TestHerettoTester:
-    async def test_success(self, fake_http, allow_any_host):
-        fake_http(FakeResponse(200, {}))
+    BRANCHES = (
+        '<branches><branch name="master"><repository name="product"/><repository name="training"/>'
+        '</branch><branch name="dev"><repository name="product"/></branch></branches>'
+    )
+
+    async def test_success_lists_the_branches(self, fake_http, allow_any_host):
+        client = fake_http(FakeResponse(200, text=self.BRANCHES))
 
         result = await testers.test_heretto(
-            {"server_url": "https://acme.heretto.com", "username": "me", "token": "t"}
+            {"server_url": "https://acme.heretto.com/", "username": "me@acme.com", "token": "t"}
         )
 
         assert result.success is True
-        assert "me" in result.message
+        assert result.message == "Connected to Heretto as me@acme.com — 2 repositories visible."
+        request = client.requests[0]
+        assert request["method"] == "GET"
+        assert request["url"] == "https://acme.heretto.com/rest/branches/"
+        assert request["headers"] == {
+            "Authorization": "Basic " + base64.b64encode(b"me@acme.com:t").decode(),
+            "Accept": "application/xml",
+        }
+
+    async def test_an_answer_that_is_not_heretto_fails(self, fake_http, allow_any_host):
+        fake_http(FakeResponse(200, text="<html><body>Sign in</body>"))
+        result = await testers.test_heretto(
+            {"server_url": "https://acme.example.com", "username": "me", "token": "t"}
+        )
+
+        assert result.success is False
+        assert "check the server URL" in result.message
 
     async def test_401_is_a_credentials_problem(self, fake_http, allow_any_host):
         fake_http(FakeResponse(401))
