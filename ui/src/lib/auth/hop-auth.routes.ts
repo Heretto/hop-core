@@ -33,4 +33,9 @@ export const HOP_ROUTES: Routes = [
     canActivate: [hopAuthGuard, hopAdminGuard],
     loadComponent: () => import('../admin/hop-admin.component').then(m => m.HopAdminComponent),
   },
+  {
+    path: 'admin/dtd-sets/:dtdSetId',
+    canActivate: [hopAuthGuard, hopAdminGuard],
+    loadComponent: () => import('../dtd-sets/hop-dtd-set-detail.component').then(m => m.HopDtdSetDetailComponent),
+  },
 ];

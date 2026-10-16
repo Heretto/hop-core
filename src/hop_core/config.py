@@ -82,6 +82,9 @@ class HopCoreSettings(BaseSettings):
     # URL access log retention
     url_access_log_retention_days: int = 90
 
+    # Largest DTD-set zip an admin may upload (the /dtd-sets routes).
+    dtd_upload_max_mb: int = 50
+
     class Config:
         env_file = ".env"
         case_sensitive = False

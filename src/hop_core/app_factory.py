@@ -33,6 +33,7 @@ def create_hop_app(
     include_credentials_router: bool = True,
     include_agents_router: bool = True,
     include_dita_router: bool = False,
+    include_dtd_sets_router: bool = False,
 ) -> FastAPI:
     """Create a FastAPI application with hop-core platform routes.
 
@@ -51,6 +52,9 @@ def create_hop_app(
             (/agents), which backs the HopAgentsComponent management UI.
         include_dita_router: Include ``POST /dita/render``, which backs
             ``<hop-dita-content [dita]>``. Requires the ``dita`` extra (lxml).
+        include_dtd_sets_router: Include ``/dtd-sets``, where organization
+            admins upload their own DITA grammar (the admin page's DTD sets
+            section). Requires the ``dita`` extra (lxml).
     """
     configure(settings_factory)
     settings = get_settings()
@@ -76,6 +80,16 @@ def create_hop_app(
     async def lifespan(app: FastAPI):
         logger.info("Starting up...")
         await init_db()
+        if include_dtd_sets_router:
+            from hop_core import dtd_sets
+            from hop_core.db import get_session_factory
+            db = get_session_factory()()
+            try:
+                # Processing runs in-process; anything mid-flight died with it.
+                if count := dtd_sets.recover_interrupted(db):
+                    logger.warning("Marked %d interrupted DTD-set upload(s) as failed", count)
+            finally:
+                db.close()
         yield
         logger.info("Shutting down...")
 
@@ -118,6 +132,9 @@ def create_hop_app(
         # Imported here: the route needs lxml, which only the ``dita`` extra installs.
         from hop_core.api.routes import dita
         app.include_router(dita.router, prefix=prefix, tags=["dita"])
+    if include_dtd_sets_router:
+        from hop_core.api.routes import dtd_sets as dtd_sets_routes
+        app.include_router(dtd_sets_routes.router, prefix=prefix, tags=["dtd-sets"])
     app.include_router(account.router, prefix=prefix, tags=["account"])
     app.include_router(organizations.router, prefix=prefix, tags=["organizations"])
 

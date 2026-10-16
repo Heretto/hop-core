@@ -43,6 +43,15 @@ export { HopMainLayoutComponent } from './lib/layout/hop-main-layout.component';
 export { HERETTO_OPEN_PROJECTS_LOGO } from './lib/layout/heretto-open-projects-logo';
 export type { NavItem } from './lib/layout/nav-item.model';
 export { HopAdminComponent } from './lib/admin/hop-admin.component';
+export type { HopAdminSection } from './lib/admin/hop-admin.component';
+export { HopDtdSetService, BUILTIN_DTD_SET_ID, dtdSetOptionLabel, dtdSetUsable } from './lib/dtd-sets/hop-dtd-set.service';
+export type {
+  DtdSetSummary, DtdSetList, DtdSetDetail, DtdSetVersion, DtdSetStep, DtdSetStatus, DtdDocumentType, DtdSetIssue,
+} from './lib/dtd-sets/hop-dtd-set.service';
+export { HopDtdSetsComponent } from './lib/dtd-sets/hop-dtd-sets.component';
+export { HopDtdSetDetailComponent } from './lib/dtd-sets/hop-dtd-set-detail.component';
+export { HopDtdUploadDialogComponent } from './lib/dtd-sets/hop-dtd-upload-dialog.component';
+export type { HopDtdUploadDialogData, HopDtdUploadDialogResult } from './lib/dtd-sets/hop-dtd-upload-dialog.component';
 export { HopInviteDialogComponent } from './lib/admin/hop-invite-dialog.component';
 export { HopAccountComponent } from './lib/account/hop-account.component';
 export { HopCredentialsComponent } from './lib/credentials/hop-credentials.component';

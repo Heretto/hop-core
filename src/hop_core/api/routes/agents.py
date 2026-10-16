@@ -31,6 +31,8 @@ from hop_core.agents.references import (
 from hop_core.heretto import HerettoClient, HerettoError
 from hop_core.models.agent import Agent, AgentContextFile, AgentReference
 from hop_core.models.credential import Credential
+from hop_core.models.dtd_set import BUILTIN_DTD_SET_ID, AgentDtdSet
+from hop_core.models.dtd_set import DtdSet as DtdSetModel
 from hop_core.schemas.agent import (
     AgentChatRequest,
     AgentChatResponse,
@@ -97,6 +99,7 @@ def _summary(agent: Agent) -> dict:
         "ai_configuration_id": agent.ai_configuration_id,
         "ai_configuration": configurations.describe(agent.ai_configuration),
         "permitted_urls": _permitted_urls(agent),
+        "dtd_set_id": agent.dtd_set_choice.dtd_set_id if agent.dtd_set_choice else None,
         "context_file_count": len(agent.context_files),
         "has_feedback_memory": bool((agent.feedback_memory or "").strip()),
         "is_active": agent.is_active,
@@ -230,6 +233,34 @@ def _replace_references(
     agent.permitted_urls = []
 
 
+def _set_dtd_set(agent: Agent, dtd_set_id: Optional[str], organization_id: UUID, db: Session) -> None:
+    """Point the agent at a DTD set, or None to follow the organization default.
+
+    Only the built-in set or one with a version that processed successfully
+    can be chosen — the same rule as the organization default.
+    """
+    if dtd_set_id is None:
+        agent.dtd_set_choice = None
+        return
+    if dtd_set_id != BUILTIN_DTD_SET_ID:
+        try:
+            key = UUID(dtd_set_id)
+        except ValueError:
+            key = None
+        chosen = key and db.query(DtdSetModel).filter(
+            DtdSetModel.id == key, DtdSetModel.organization_id == organization_id).first()
+        if not chosen:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="DTD set not found in this organization")
+        if chosen.current_version_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="That DTD set has no version that finished processing yet")
+    if agent.dtd_set_choice is None:
+        agent.dtd_set_choice = AgentDtdSet(dtd_set_id=dtd_set_id)
+    else:
+        agent.dtd_set_choice.dtd_set_id = dtd_set_id
+
+
 def _references_with_urls(agent: Agent, urls: List[str]) -> List[AgentReferenceIn]:
     """An older client sent only permitted_urls: replace the URL references,
     keep the Heretto ones, and keep guidance on URLs that stay."""
@@ -293,6 +324,7 @@ async def create_agent(
     if references is None:
         references = [AgentReferenceIn(kind="url", url=u) for u in agent_data.permitted_urls]
     _replace_references(agent, references, context.organization_id, db)
+    _set_dtd_set(agent, agent_data.dtd_set_id, context.organization_id, db)
 
     db.add(agent)
     db.commit()
@@ -413,6 +445,9 @@ async def update_agent(
             agent, _references_with_urls(agent, agent_data.permitted_urls),
             context.organization_id, db,
         )
+
+    if "dtd_set_id" in fields:
+        _set_dtd_set(agent, agent_data.dtd_set_id, context.organization_id, db)
 
     if agent_data.feedback_memory is not None:
         agent.feedback_memory = agent_data.feedback_memory

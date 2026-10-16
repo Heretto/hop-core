@@ -92,6 +92,17 @@ class DitaValidator:
         profile = xmllint_profile()
         return profile is not None and profile.usable
 
+    _DOCTYPE_PUBLIC = re.compile(r'<!DOCTYPE\s+[\w.:-]+\s+PUBLIC\s+(["\'])(.*?)\1', re.S)
+
+    def _shell_for_doctype(self, content: str) -> Optional[str]:
+        """The shell named by the content's own DOCTYPE public ID, when the set
+        knows it — the author's choice beats a guess from the root element."""
+        match = self._DOCTYPE_PUBLIC.search(content[:2000])
+        if not match:
+            return None
+        path = self.dtd_set.shell_for_public_id(match.group(2).strip())
+        return str(path) if path is not None else None
+
     def _dtd_path_for_xmllint(self, topic_type: str) -> Optional[str]:
         """Return the shell DTD xmllint validates ``topic_type`` against, or None."""
         return self._shell_for(topic_type)
@@ -123,7 +134,7 @@ class DitaValidator:
             logger.debug("xmllint not found; skipping DTD validation")
             return None, None
 
-        dtd_path = self._dtd_path_for_xmllint(topic_type)
+        dtd_path = self._shell_for_doctype(content) or self._dtd_path_for_xmllint(topic_type)
         if dtd_path is None:
             logger.debug(f"No xmllint-compatible DTD for topic_type={topic_type!r}; skipping")
             return None, None
@@ -137,13 +148,20 @@ class DitaValidator:
             tmp.write(validated_xml)
             tmp.close()
 
-            # --nocatalogs: a system XML catalog must not swap in other DITA DTDs
-            # for the public identifiers the shells use.
+            # A set with a catalog resolves its public IDs through that catalog
+            # alone; without one, --nocatalogs keeps a system XML catalog from
+            # swapping in other DITA DTDs for the IDs the shells use.
+            env = None
+            catalog_args = ["--nocatalogs"]
+            if self.dtd_set.catalog is not None:
+                env = {**os.environ, "XML_CATALOG_FILES": Path(self.dtd_set.catalog).resolve().as_uri()}
+                catalog_args = ["--catalogs"]
             result = subprocess.run(
-                ["xmllint", "--nocatalogs", *xmllint_profile().args, "--valid", "--noout", tmp.name],
+                ["xmllint", *catalog_args, *xmllint_profile().args, "--valid", "--noout", tmp.name],
                 capture_output=True,
                 text=True,
                 timeout=30,
+                env=env,
             )
         finally:
             os.unlink(tmp.name)

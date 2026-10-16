@@ -149,6 +149,9 @@ class AgentCreate(_PermittedUrlsMixin):
     # wins when both are present.
     permitted_urls: List[str] = Field(default_factory=list)
     references: Optional[List[AgentReferenceIn]] = None
+    # The DTD set this agent validates DITA against; null follows the
+    # organization default.
+    dtd_set_id: Optional[str] = Field(default=None, max_length=64)
     feedback_memory: str = ""
     is_active: bool = True
 
@@ -168,6 +171,8 @@ class AgentUpdate(_PermittedUrlsMixin):
     context_files: Optional[List[AgentContextFileCreate]] = None
     permitted_urls: Optional[List[str]] = None
     references: Optional[List[AgentReferenceIn]] = None
+    # Sent as null to go back to following the organization default.
+    dtd_set_id: Optional[str] = Field(default=None, max_length=64)
     feedback_memory: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -184,6 +189,7 @@ class AgentSummaryResponse(BaseModel):
     # Resolved for display; null when unset or when the credential was deleted.
     ai_configuration: Optional[AiConfigurationSummary] = None
     permitted_urls: List[str] = Field(default_factory=list)
+    dtd_set_id: Optional[str] = None
     context_file_count: int = 0
     has_feedback_memory: bool = False
     is_active: bool = True
