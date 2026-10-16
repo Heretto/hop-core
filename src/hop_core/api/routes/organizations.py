@@ -26,6 +26,7 @@ from hop_core.api.dependencies import (
     CurrentUserContext,
 )
 from hop_core.core.security import create_access_token, create_refresh_token, set_auth_cookies
+from hop_core.core.invitations import clear_way_for_invitation, find_user_by_email, normalize_email
 
 router = APIRouter(prefix="/organizations")
 
@@ -341,7 +342,8 @@ async def create_invitation(
     context: CurrentUserContext = Depends(require_org_admin),
     db: Session = Depends(get_db),
 ):
-    existing_user = db.query(User).filter(User.email == invitation_data.email).first()
+    email = normalize_email(invitation_data.email)
+    existing_user = find_user_by_email(db, email)
 
     if existing_user:
         existing_member = db.execute(
@@ -357,17 +359,7 @@ async def create_invitation(
                 detail="User is already a member of this organization",
             )
 
-    existing_invitation = db.query(OrganizationInvitation).filter(
-        OrganizationInvitation.email == invitation_data.email,
-        OrganizationInvitation.organization_id == context.organization_id,
-        OrganizationInvitation.accepted_at.is_(None),
-    ).first()
-
-    if existing_invitation:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invitation already sent to this email",
-        )
+    clear_way_for_invitation(db, context.organization_id, email)
 
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
@@ -375,7 +367,7 @@ async def create_invitation(
     role_val = _normalize_role(invitation_data.role).upper()
     invitation = OrganizationInvitation(
         organization_id=context.organization_id,
-        email=invitation_data.email,
+        email=email,
         role=role_val,
         token=token,
         invited_by=context.user.id,
