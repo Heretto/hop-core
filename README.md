@@ -16,6 +16,7 @@ A batteries-included platform library for building AI-powered content creation a
 | **Invitations** | Token-based email invitations for new and existing users, admin-managed pending invites |
 | **Credentials** | Org-scoped encrypted credential storage (Fernet / PBKDF2), generic CRUD, and a registry of credential *types* with field specs and connection testers — an app picks which types it offers and gets a working management UI, including a Test button, for them |
 | **Agents** | Org-scoped agent configurations — name, a selected AI configuration, markdown context files, reference material (URLs and Heretto files, each with guidance), and a separate feedback memory. CRUD at `/agents`, a chat endpoint for testing one, and `hop_core.agents` (`AgentDefinition`, `AgentRunner`) for running one from a job or workflow |
+| **Heretto browsing** | `/heretto` routes that browse a Heretto CCMS through the organization's Heretto connections — repositories, folders, finding files by name, file details, and resolving a pasted file ID, URL or path. They back the hop-ui file browser. See [Choosing files in Heretto](#choosing-files-in-heretto) |
 | **Account** | Self-service profile updates (email, password, account deletion) |
 | **Password reset** | Token-based reset flow with SMTP email delivery |
 | **Security** | CSRF double-submit cookie protection, rate limiting via slowapi, SSRF-safe URL validation, security response headers |
@@ -38,6 +39,7 @@ Also **DTD sets**: organization admins upload their own DITA grammar — a zip o
 | `HopDtdSetsComponent`, `HopDtdSetDetailComponent`, `HopDtdUploadDialogComponent` + `HopDtdSetService` | DTD set administration — the organization default, the sets list, upload with live processing steps, and each set's warnings, document types, versions and usage |
 | `HopCredentialsComponent` | Credential management — a tab per registered type, forms built from each type's declared fields, one-click connection testing |
 | `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, references, memory, and a chat panel for testing the agent |
+| `HopHerettoFileFieldComponent`, `openHerettoFileBrowser()` + `HopHerettoService` | Choosing a file in Heretto — a form field that takes a pasted ID, URL or path or opens the file browser, and the browser dialog itself: repositories, folders, find by name, file details, limited to the kinds you accept |
 | `HopDitaContentComponent` + `HopDitaService` | `<hop-dita-content>` shows rendered DITA — `[html]` from your backend's `DitaRenderer`, or `[dita]` rendered via `POST /dita/render` — styled by the theme, with in-topic links scrolling in place and other links reported through `(linkClick)` |
 | `HopMainLayoutComponent` | App shell with sidebar navigation, header, and router outlet |
 | `HopAuthService` | Reactive auth state, token refresh, login/logout |
@@ -169,6 +171,7 @@ app = create_hop_app(
     include_credentials_router=True,    # generic credentials CRUD (default: True)
                                         # set False if you add type-specific routes
     include_agents_router=True,         # agent configuration CRUD (default: True)
+    include_heretto_router=True,        # /heretto: browse Heretto for the file picker (default: True)
     include_dita_router=False,          # POST /dita/render (needs the dita extra)
     include_dtd_sets_router=False,      # /dtd-sets: uploaded DTD sets (needs the dita extra)
 )
@@ -403,7 +406,7 @@ the UI.
 | Built-in type | Tab | Fields | Connection test |
 |---|---|---|---|
 | `jira` | Jira | Server URL, Email, API Token *(secret)* | `GET /rest/api/3/myself` |
-| `heretto` | Heretto | Server URL, Username, API Token *(secret)* | authenticated `GET /api/v1/user` |
+| `heretto` | Heretto | Server URL, Username, API Token *(secret)* | authenticated `GET /rest/branches/` (Basic auth: username + API token) |
 | `anthropic`, `openai`, `gemini` | AI Providers | API Key *(secret)*, Model | a 16-token completion |
 
 The three AI provider types share a `group`, so they render as **one** "AI
@@ -526,10 +529,11 @@ covers the pages beneath it, and a leading `*.` on the host covers subdomains.
 
 **Heretto files.** A topic or map in Heretto CCMS, read through a *Heretto
 connection* — an ordinary [credential](#credentials) of type `heretto` (server
-URL, username, API token). The editor accepts a **file ID**, a **Heretto URL
-containing one**, or a **repository path** such as
-`master/product/documents/guides/style.dita`, and checks it against Heretto
-before adding it. A **map reads as every topic it links to**, in map order and
+URL, username, API token). The editor's [Heretto file field](#choosing-files-in-heretto)
+accepts a **file ID**, a **Heretto URL containing one**, or a **repository
+path** such as `master/product/documents/guides/style.dita`, and checks it
+against Heretto before it can be added — or **Browse…** finds the file in
+Heretto's folders. A **map reads as every topic it links to**, in map order and
 following submaps: a map is a collection of links, and whoever picks one means
 the content it collects. Content reaches the model as readable text converted
 from the DITA — headings, lists, tables, glossary entries.
@@ -714,6 +718,63 @@ navigates back relatively, so mounting the set under any path works.
 
 ---
 
+## Choosing files in Heretto
+
+Apps that act on content in Heretto — publish a map, check topics against a
+style guide — need the user to pick a file. `<hop-heretto-file-field>` is the
+form control for that, and `openHerettoFileBrowser()` the dialog behind it.
+Both go through the organization's Heretto connections (credentials of type
+`heretto`), so there is nothing to configure beyond adding one under
+Credentials.
+
+```ts
+import { HopHerettoFileFieldComponent, HerettoFile } from '@heretto/hop-ui';
+
+sourceMap = new FormControl<HerettoFile | null>(null, Validators.required);
+```
+```html
+<hop-heretto-file-field label="Source map" hint="The map this app publishes."
+    purpose="Choose the map to publish" [accept]="['map']" required
+    [formControl]="sourceMap"></hop-heretto-file-field>
+```
+
+Empty, the field takes a pasted file ID, Heretto URL or repository path and
+checks it against Heretto, or **Browse…** opens the browser. A wrong path says
+what the folder does contain and offers to browse it. Chosen, it shows the
+file's title, location, type and connection, with **Change** (reopens the
+browser at that file) and **Remove**. The value is a `HerettoFile` — store at
+least `credential_id` and `id`, and read the file on the server through that
+credential: `async with HerettoClient.from_payload(payload) as c: await
+c.get_content(id)`, with `payload` the decrypted credential.
+
+The **browser** opens where the user last was for that connection. It has a
+repository select, breadcrumbs, a way to type or paste a folder path, and
+**Find by name**: it filters the open folder as you type, and with **Include
+subfolders** it searches the folder and everything below it. Files outside
+`accept` (`map`, `topic`, `image`, `other`) show but can't be chosen. The side
+pane shows the selected file's title, location, last-modified date and ID,
+with a link to open it in Heretto. Double-click chooses a file.
+
+```ts
+openHerettoFileBrowser(this.dialog, { purpose: 'Choose a style guide', accept: ['topic', 'map'] })
+  .subscribe(file => { if (file) { /* … */ } });
+```
+
+**Search is by name, not content.** Heretto's full-text search does not
+accept API-token requests, so searching walks the folder tree on the server,
+a level at a time. It is bounded — 300 folders, 12 levels, 200 matches, 20
+seconds — and says when it stopped early, since a bounded search that found
+nothing is not proof there is nothing. Searching from a subfolder is faster.
+`HerettoClient.find_by_name` is the one place to swap in a token-friendly
+search when one exists.
+
+The routes are mounted by default (`create_hop_app(include_heretto_router=False)`
+turns them off). Any member of the organization can browse through any of its
+Heretto connections, with the connection's account's permissions. Heretto
+failures answer 400 with `detail = {message, reason, folder_id}` — `reason` is
+`credentials` when Heretto rejected the connection, and `folder_id` is where a
+typed path went wrong.
+
 ## DTD sets
 
 Organizations can validate DITA against their own grammar — specializations,
@@ -833,6 +894,14 @@ All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`
 | `DELETE` | `/dtd-sets/{id}` | admin | Delete a set nothing uses |
 | `GET` | `/agents/heretto-connections` | ✓ | Heretto connections references can be read through |
 | `POST` | `/agents/heretto/resolve` | ✓ | Check a Heretto file ID, URL or repository path and describe the file |
+| `GET` | `/heretto/connections` | ✓ | The organization's Heretto connections |
+| `GET` | `/heretto/{credential_id}/repositories` | ✓ | Every branch and repository the connection can see |
+| `GET` | `/heretto/{credential_id}/repositories/{branch}/{repository}` | ✓ | A repository's `documents` folder |
+| `GET` | `/heretto/{credential_id}/folders/{folder_id}` | ✓ | A folder's subfolders and files; `?ancestors=true` adds the folders above it |
+| `POST` | `/heretto/{credential_id}/folders/resolve` | ✓ | The folder a typed path names (`{branch, repository, path}`) |
+| `GET` | `/heretto/{credential_id}/folders/{folder_id}/search?q=` | ✓ | Files and folders whose names contain `q`, in the folder and below (bounded) |
+| `GET` | `/heretto/{credential_id}/files/{file_id}` | ✓ | A file's title, location, type, status and dates |
+| `POST` | `/heretto/{credential_id}/resolve` | ✓ | The file a pasted ID, URL or repository path names |
 | `GET` | `/agents/{id}` | ✓ | Get agent with context files and memory |
 | `PUT` | `/agents/{id}` | ✓ | Update agent (partial) |
 | `DELETE` | `/agents/{id}` | ✓ | Delete agent |

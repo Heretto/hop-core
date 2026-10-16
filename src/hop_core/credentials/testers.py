@@ -131,27 +131,41 @@ async def test_jira(payload: Dict[str, Any]) -> CredentialTestResult:
 # ── Heretto ───────────────────────────────────────────────────────────────────
 
 async def test_heretto(payload: Dict[str, Any]) -> CredentialTestResult:
-    """Call a Heretto endpoint that requires authentication but changes nothing."""
+    """List the branches and repositories the account can see: authenticated,
+    read-only, and what the file browser itself calls first."""
+    from hop_core.heretto.client import HerettoError, parse_repositories
+
     _require(payload, "server_url", "username", "token")
     base_url = _checked_base_url(payload)
+    token = base64.b64encode(
+        f"{payload['username']}:{payload['token']}".encode()
+    ).decode("ascii")
 
     async with _client() as client:
         exchange, response = await _send(
-            client, "GET", f"{base_url}/api/v1/user",
-            headers={
-                "Authorization": f"Bearer {payload['token']}",
-                "Accept": "application/json",
-            },
+            client, "GET", f"{base_url}/rest/branches/",
+            headers={"Authorization": f"Basic {token}", "Accept": "application/xml"},
         )
 
     if response.is_redirect:
         return _failure(_redirect_message(response), exchange)
 
     if response.status_code == 200:
+        try:
+            repositories = parse_repositories((response.text or "").encode())
+        except HerettoError:
+            return _failure(
+                "The server answered, but not with Heretto's branch list — check the server URL.",
+                exchange,
+            )
+        count = len({repo for _, repo in repositories})
         return CredentialTestResult(
             success=True,
-            message=f"Connected to Heretto as {payload['username']}.",
-            details={"account": payload["username"]},
+            message=(
+                f"Connected to Heretto as {payload['username']} — "
+                f"{count} {'repository' if count == 1 else 'repositories'} visible."
+            ),
+            details={"account": payload["username"], "repositories": count},
             exchange=exchange,
         )
 

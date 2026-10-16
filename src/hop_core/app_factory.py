@@ -32,6 +32,7 @@ def create_hop_app(
     include_superadmin: bool = True,
     include_credentials_router: bool = True,
     include_agents_router: bool = True,
+    include_heretto_router: bool = True,
     include_dita_router: bool = False,
     include_dtd_sets_router: bool = False,
 ) -> FastAPI:
@@ -50,6 +51,9 @@ def create_hop_app(
             extra_routers with type-specific sub-routes (e.g. /credentials/jira).
         include_agents_router: Include hop-core's agent configuration router
             (/agents), which backs the HopAgentsComponent management UI.
+        include_heretto_router: Include ``/heretto``, which browses a
+            Heretto CCMS through the organization's Heretto connections — it
+            backs the hop-ui Heretto file browser and file field.
         include_dita_router: Include ``POST /dita/render``, which backs
             ``<hop-dita-content [dita]>``. Requires the ``dita`` extra (lxml).
         include_dtd_sets_router: Include ``/dtd-sets``, where organization
@@ -128,6 +132,9 @@ def create_hop_app(
         app.include_router(credentials.router, prefix=prefix, tags=["credentials"])
     if include_agents_router:
         app.include_router(agents.router, prefix=prefix, tags=["agents"])
+    if include_heretto_router:
+        from hop_core.api.routes import heretto as heretto_routes
+        app.include_router(heretto_routes.router, prefix=prefix, tags=["heretto"])
     if include_dita_router:
         # Imported here: the route needs lxml, which only the ``dita`` extra installs.
         from hop_core.api.routes import dita

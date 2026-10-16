@@ -24,8 +24,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
-  HopConfirmDialogComponent, HopConfirmDialogData, HopDataTableComponent, HopDitaContentComponent,
-  HopTableCellDirective, HopTableColumn,
+  HerettoFile, HopConfirmDialogComponent, HopConfirmDialogData, HopDataTableComponent, HopDitaContentComponent,
+  HopHerettoFileFieldComponent, HopTableCellDirective, HopTableColumn, openHerettoFileBrowser,
 } from '@heretto/hop-ui';
 
 interface Swatch {
@@ -101,6 +101,7 @@ interface MemberRow {
     HopDitaContentComponent,
     HopDataTableComponent,
     HopTableCellDirective,
+    HopHerettoFileFieldComponent,
   ],
   template: `
     <div class="widgets">
@@ -585,6 +586,42 @@ interface MemberRow {
         </mat-card>
       </section>
 
+      <!-- HERETTO FILES --------------------------------------------------- -->
+      <section>
+        <h2>Heretto files</h2>
+        <mat-card class="demo-card">
+          <mat-card-content>
+            <p class="section-note">
+              <code>&lt;hop-heretto-file-field&gt;</code> picks a file in Heretto: paste a file ID,
+              Heretto URL or repository path, or <strong>Browse…</strong> the repository. It reads
+              through the organization's Heretto connections — add one under
+              <strong>Credentials</strong> first.
+            </p>
+            <div class="heretto-fields">
+              <hop-heretto-file-field label="Source map" hint="The map this app publishes."
+                  purpose="Choose the map to publish" [accept]="['map']" [required]="true"
+                  [(ngModel)]="sourceMap"></hop-heretto-file-field>
+              <hop-heretto-file-field label="Style guide" hint="Any DITA topic or map. Optional."
+                  purpose="Choose a style guide" [accept]="['topic', 'map']"
+                  [(ngModel)]="styleGuide"></hop-heretto-file-field>
+            </div>
+            <mat-divider></mat-divider>
+            <div class="row">
+              <button mat-stroked-button type="button" (click)="browseHeretto()">
+                <mat-icon>folder_open</mat-icon>
+                Open the file browser
+              </button>
+              <span class="section-note">
+                <code>openHerettoFileBrowser(dialog, data)</code> — any file kind.
+              </span>
+            </div>
+            @if (browsedFile) {
+              <p class="result">Chose <strong>{{ browsedFile.title }}</strong> — <code>{{ browsedFile.id }}</code></p>
+            }
+          </mat-card-content>
+        </mat-card>
+      </section>
+
       <!-- OVERLAYS -------------------------------------------------------- -->
       <section>
         <h2>Dialogs &amp; notifications</h2>
@@ -699,6 +736,9 @@ interface MemberRow {
     /* DITA topic */
     .dita-source textarea { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; }
     .dita-warnings { margin-bottom: 16px; }
+
+    /* Heretto files */
+    .heretto-fields { display: flex; flex-direction: column; gap: 32px; max-width: 680px; }
   `]
 })
 export class WidgetsComponent {
@@ -714,6 +754,10 @@ export class WidgetsComponent {
   seats = 20;
 
   lastConfirm: boolean | null = null;
+
+  sourceMap: HerettoFile | null = null;
+  styleGuide: HerettoFile | null = null;
+  browsedFile: HerettoFile | null = null;
 
   ditaSource = SAMPLE_TOPIC;
   /** What the Rendered tab shows — set on switching to it, not on every keystroke. */
@@ -798,7 +842,12 @@ export class WidgetsComponent {
     }
   }
 
-  resetDita(): void {
+  browseHeretto(): void {
+    openHerettoFileBrowser(this.dialog, { purpose: 'Any file — this just shows what comes back' })
+      .subscribe(file => { if (file) this.browsedFile = file; });
+  }
+
+    resetDita(): void {
     this.ditaSource = SAMPLE_TOPIC;
   }
 

@@ -64,6 +64,14 @@ export type {
 export { HopAgentsComponent } from './lib/agents/hop-agents.component';
 export { HopAgentEditorComponent } from './lib/agents/hop-agent-editor.component';
 export { HopAgentChatComponent } from './lib/agents/hop-agent-chat.component';
+export { HopHerettoService, herettoFailure, HERETTO_KIND_LABELS } from './lib/heretto/hop-heretto.service';
+export type {
+  HerettoFile, HerettoFileKind, HerettoEntry, HerettoEntryKind, HerettoFolderListing, HerettoFolderRef,
+  HerettoRepository, HerettoSearchMatch, HerettoSearchResult, HerettoFailure,
+} from './lib/heretto/hop-heretto.service';
+export { HopHerettoBrowserDialogComponent, openHerettoFileBrowser } from './lib/heretto/hop-heretto-browser-dialog.component';
+export type { HopHerettoBrowserDialogData } from './lib/heretto/hop-heretto-browser-dialog.component';
+export { HopHerettoFileFieldComponent } from './lib/heretto/hop-heretto-file-field.component';
 export { HopDataTableComponent, HopTableCellDirective } from './lib/table/hop-data-table.component';
 export type { HopTableColumn, HopTableValue } from './lib/table/hop-data-table.component';
 export { HopDitaContentComponent } from './lib/dita/hop-dita-content.component';

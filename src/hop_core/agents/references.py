@@ -22,6 +22,14 @@ from hop_core.models.credential import Credential
 HERETTO_CREDENTIAL_TYPE = "heretto"
 
 
+def heretto_connections(organization_id, db: Session):
+    """The organization's Heretto credentials, by name."""
+    return db.query(Credential).filter(
+        Credential.organization_id == organization_id,
+        Credential.type == HERETTO_CREDENTIAL_TYPE,
+    ).order_by(Credential.name).all()
+
+
 def heretto_credential(credential_id, organization_id, db: Session):
     """The organization's Heretto credential with this ID, or None."""
     return db.query(Credential).filter(
