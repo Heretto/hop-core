@@ -52,13 +52,15 @@ const SKELETON = ['180px', '140px', '220px', '160px', '200px', '120px', '170px']
       <span>{{ emptyHint }}</span>
     </div>
 
-    <ul role="listbox" aria-label="Files and folders" *ngIf="!loading && !error && rows.length > 0">
+    <ul role="listbox" aria-label="Files and folders" [attr.aria-multiselectable]="multiple || null"
+        *ngIf="!loading && !error && rows.length > 0">
       <li *ngFor="let row of rows; trackBy: trackRow">
         <button type="button" class="row" role="option" [disabled]="row.disabled"
-                [class.folder]="row.entry.kind === 'folder'" [class.selected]="row.entry.id === selectedId"
-                [attr.aria-selected]="row.entry.id === selectedId"
-                (click)="activate(row)" (dblclick)="row.entry.kind !== 'folder' && choose.emit(row)">
+                [class.folder]="row.entry.kind === 'folder'" [class.selected]="selected.has(row.entry.id)"
+                [attr.aria-selected]="selected.has(row.entry.id)"
+                (click)="activate(row)" (dblclick)="!multiple && row.entry.kind !== 'folder' && choose.emit(row)">
           <span class="name">
+            <mat-icon class="check" *ngIf="multiple" aria-hidden="true">{{ checkIcon(row) }}</mat-icon>
             <mat-icon>{{ icon(row) }}</mat-icon>
             <span class="text">
               <span class="label">{{ row.entry.name }}</span>
@@ -92,6 +94,8 @@ const SKELETON = ['180px', '140px', '220px', '160px', '200px', '120px', '170px']
     .name { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .name mat-icon { flex-shrink: 0; color: var(--text-tertiary); }
     .row.folder mat-icon { color: var(--color-accent-text); }
+    .row mat-icon.check { margin-right: -4px; color: var(--text-tertiary); }
+    .row.selected mat-icon.check { color: var(--color-primary); }
     button.row:disabled mat-icon { color: var(--text-disabled); }
     .text { display: flex; flex-direction: column; min-width: 0; }
     .label, .where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -122,7 +126,10 @@ export class HopHerettoEntryListComponent {
   @Input() error: HerettoFailure | null = null;
   @Input() errorTitle = "Couldn't open this folder.";
   @Input() credentialsLink: string | null = null;
-  @Input() selectedId: string | null = null;
+  /** IDs of the selected rows. */
+  @Input() selected: ReadonlySet<string> = new Set();
+  /** Many files can be chosen: file rows get a checkbox and double-click doesn't choose. */
+  @Input() multiple = false;
   @Input() emptyIcon = 'folder_open';
   @Input() emptyTitle = 'This folder is empty';
   @Input() emptyHint = '';
@@ -140,6 +147,12 @@ export class HopHerettoEntryListComponent {
 
   activate(row: HerettoBrowserRow): void {
     (row.entry.kind === 'folder' ? this.open : this.pick).emit(row);
+  }
+
+  /** Folders get a blank space where files have a checkbox, so names line up. */
+  checkIcon(row: HerettoBrowserRow): string {
+    if (row.entry.kind === 'folder' || row.disabled) return '';
+    return this.selected.has(row.entry.id) ? 'check_box' : 'check_box_outline_blank';
   }
 
   icon(row: HerettoBrowserRow): string {

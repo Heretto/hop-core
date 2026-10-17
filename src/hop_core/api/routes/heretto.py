@@ -204,9 +204,17 @@ async def resolve_folder(
     context: CurrentUserContext = Depends(get_current_active_user_with_org),
     db: Session = Depends(get_db),
 ):
-    """The folder a typed or pasted path names in a repository, with its ancestors."""
+    """The folder a typed or pasted path names, with its ancestors.
+
+    With ``branch`` and ``repository``, ``path`` is relative to that
+    repository; without them it must be a folder ID, Heretto URL or full
+    repository path.
+    """
     async with _client(_credential(credential_id, context, db)) as client:
-        folder = await client.resolve_folder(body.branch, body.repository, body.path)
+        if body.branch and body.repository:
+            folder = await client.resolve_folder(body.branch, body.repository, body.path)
+        else:
+            folder = await client.resolve_folder_identifier(body.path)
         chain = await client.get_ancestors(folder)
     return _listing(folder, chain)
 

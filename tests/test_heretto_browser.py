@@ -145,6 +145,25 @@ class TestFolderPaths:
         assert err.value.folder_id == GUIDES
 
 
+class TestFolderIdentifiers:
+    @pytest.mark.parametrize("identifier", [
+        "master/product/documents/guides/install", "master/product/guides/install/",
+        INSTALL, f"{SERVER}/#/folder/{INSTALL}",
+    ])
+    async def test_forms(self, identifier):
+        async with FakeHeretto(tree()).client() as c:
+            assert (await c.resolve_folder_identifier(identifier)).id == INSTALL
+
+    async def test_repository_alone_is_its_documents_folder(self):
+        async with FakeHeretto(tree()).client() as c:
+            assert (await c.resolve_folder_identifier("master/product")).id == ROOT
+
+    async def test_needs_a_branch_and_repository(self):
+        async with FakeHeretto(tree()).client() as c:
+            with pytest.raises(HerettoError, match="repository path like"):
+                await c.resolve_folder_identifier("guides")
+
+
 class TestFindByName:
     async def test_matches_below_the_folder(self):
         async with FakeHeretto(tree()).client() as c:
@@ -245,6 +264,12 @@ class TestApi:
                            json={"branch": "master", "repository": "product", "path": "/guides/install"})
         assert resp.json()["id"] == INSTALL
         assert [a["name"] for a in resp.json()["ancestors"]] == ["documents", "guides"]
+
+    def test_resolve_folder_without_a_repository(self, client, new_user, heretto, fake):
+        resp = client.post(api(heretto, "/folders/resolve"), headers=new_user["headers"],
+                           json={"path": "master/product/documents/guides/install"})
+        assert resp.json()["id"] == INSTALL
+        assert resp.json()["branch"] == "master" and resp.json()["repository"] == "product"
 
     def test_resolve_folder_error(self, client, new_user, heretto, fake):
         resp = client.post(api(heretto, "/folders/resolve"), headers=new_user["headers"],
