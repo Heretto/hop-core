@@ -228,7 +228,8 @@ Status callout pattern (verified, AA-safe):
 
 | Token | Value | Notes |
 |---|---|---|
-| `--hop-sidebar-width` | `250px` | Consumed by `HopMainLayoutComponent` |
+| `--hop-sidebar-width` | `250px` | Consumed by `HopMainLayoutComponent` — the open nav |
+| `--hop-sidebar-rail-width` | `64px` | The collapsed nav (icons only) |
 | `--hop-toolbar-height` | `64px` | Legacy; the top bar is 56px |
 | `--hop-space-xs/sm/md/lg/xl` | `4/8/16/24/32px` | Spacing shorthand |
 | `--hop-primary` → `var(--color-primary)` | | compat alias |
@@ -452,7 +453,7 @@ Everything importable from `@heretto/hop-ui`:
 | `HopResetPasswordComponent` | `hop-reset-password` | Token-based password reset | — |
 | `HopSSOCallbackComponent` | `hop-sso-callback` | OAuth redirect completion | — |
 | `HopAcceptInvitationComponent` | `hop-accept-invitation` | Accept org invitation (`/invite/:token`) | — |
-| `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet | `appTitle: string`, `logoSrc?: string` (brand image, 36px tall, far left; with `appTitle` set the app name renders beside it after a thin divider — set `appTitle=""` for logo-only; without `logoSrc` the brand falls back to icon + name), `navItems: NavItem[]` |
+| `HopMainLayoutComponent` | `hop-main-layout` | App shell: white top bar (brand left; profile + settings icon buttons right), sidebar below, router outlet. The sidebar collapses: a toggle at its foot switches between **pinned** open and **collapsed** to a 64px icon rail that springs open over the content on hover (and on keyboard focus; Escape closes it). Each user's choice is remembered in the browser. At ≤768px it is always the rail, opened and closed by the toggle | `appTitle: string`, `logoSrc?: string` (brand image, 36px tall, far left; with `appTitle` set the app name renders beside it after a thin divider — set `appTitle=""` for logo-only; without `logoSrc` the brand falls back to icon + name), `navItems: NavItem[]`, `navMode: 'pinned' \| 'collapsed' = 'pinned'` (how the nav starts for a user who hasn't chosen) |
 | `HopAccountComponent` | `hop-account` | Profile editor (email, password, delete) | — |
 | `HopAdminComponent` | `hop-admin` | Org admin with a side nav: General (organization name), Users (members + invitations tabs), DTD sets (shown only when the app mounts `/dtd-sets`). The section is the `?section=general\|users\|dtd-sets` query param (default `users`) | — |
 | `HopDtdSetsComponent` | `hop-dtd-sets` | DTD sets section of HopAdmin: organization-default select, sets table (status chips, row menu: open, upload new version, make default, download), upload button, packaging guidance. Refreshes while anything is processing | outputs `countChange: number` |
