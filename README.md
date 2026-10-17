@@ -39,7 +39,7 @@ Also **DTD sets**: organization admins upload their own DITA grammar — a zip o
 | `HopDtdSetsComponent`, `HopDtdSetDetailComponent`, `HopDtdUploadDialogComponent` + `HopDtdSetService` | DTD set administration — the organization default, the sets list, upload with live processing steps, and each set's warnings, document types, versions and usage |
 | `HopCredentialsComponent` | Credential management — a tab per registered type, forms built from each type's declared fields, one-click connection testing |
 | `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, references, memory, and a chat panel for testing the agent |
-| `HopHerettoFileFieldComponent`, `openHerettoFileBrowser()` + `HopHerettoService` | Choosing a file in Heretto — a form field that takes a pasted ID, URL or path or opens the file browser, and the browser dialog itself: repositories, folders, find by name, file details, limited to the kinds you accept |
+| `HopHerettoFileFieldComponent`, `openHerettoFileBrowser()` + `HopHerettoService` | Choosing content in Heretto — one file, several files, or a folder. A form field that takes a pasted ID, URL or path or opens the browser, and the browser dialog itself: repositories, folders, find by name, details, limited to the kinds you accept |
 | `HopDitaContentComponent` + `HopDitaService` | `<hop-dita-content>` shows rendered DITA — `[html]` from your backend's `DitaRenderer`, or `[dita]` rendered via `POST /dita/render` — styled by the theme, with in-topic links scrolling in place and other links reported through `(linkClick)` |
 | `HopMainLayoutComponent` | App shell with sidebar navigation, header, and router outlet. The sidebar can be pinned open or collapsed to an icon rail that springs open on hover; each user's choice is remembered, and `navMode` sets the default |
 | `HopAuthService` | Reactive auth state, token refresh, login/logout |
@@ -760,6 +760,29 @@ openHerettoFileBrowser(this.dialog, { purpose: 'Choose a style guide', accept: [
   .subscribe(file => { if (file) { /* … */ } });
 ```
 
+**Several files, or a folder.** `selection` picks what is chosen — `'file'`
+(the default), `'files'` or `'folder'` — on the field and the browser alike:
+
+```html
+<hop-heretto-file-field selection="files" label="Topics to review" [accept]="['topic']"
+    [formControl]="topics"></hop-heretto-file-field>      <!-- HerettoFile[] -->
+<hop-heretto-file-field selection="folder" label="Output folder"
+    [formControl]="outputFolder"></hop-heretto-file-field> <!-- HerettoFolder | null -->
+```
+
+Choosing **files**, rows get checkboxes and choices are kept while moving
+between folders and searching; the side pane lists what's chosen, and the
+button counts it ("Select 3 files"). The field lists the files, each with
+Remove; pasting or browsing adds more, and browsing opens with the current
+files already chosen. Choosing a **folder**, the user opens it and selects it:
+files show greyed, and the side pane describes the open folder. A pasted
+folder ID, Heretto URL or full repository path
+(`master/product/documents/guides`) works too. A `HerettoFolder` carries `id`,
+`name`, `path`, `branch`, `repository` and the connection.
+
+Without a field, `openHerettoFilesBrowser(dialog, data)` emits `HerettoFile[]`
+and `openHerettoFolderBrowser(dialog, data)` a `HerettoFolder`.
+
 **Search is by name, not content.** Heretto's full-text search does not
 accept API-token requests, so searching walks the folder tree on the server,
 a level at a time. It is bounded — 300 folders, 12 levels, 200 matches, 20
@@ -898,7 +921,7 @@ All routes are prefixed with `/api/v1` by default (configurable via `API_PREFIX`
 | `GET` | `/heretto/{credential_id}/repositories` | ✓ | Every branch and repository the connection can see |
 | `GET` | `/heretto/{credential_id}/repositories/{branch}/{repository}` | ✓ | A repository's `documents` folder |
 | `GET` | `/heretto/{credential_id}/folders/{folder_id}` | ✓ | A folder's subfolders and files; `?ancestors=true` adds the folders above it |
-| `POST` | `/heretto/{credential_id}/folders/resolve` | ✓ | The folder a typed path names (`{branch, repository, path}`) |
+| `POST` | `/heretto/{credential_id}/folders/resolve` | ✓ | The folder a typed path names (`{branch, repository, path}`), or with only `path`, a folder ID, URL or full repository path |
 | `GET` | `/heretto/{credential_id}/folders/{folder_id}/search?q=` | ✓ | Files and folders whose names contain `q`, in the folder and below (bounded) |
 | `GET` | `/heretto/{credential_id}/files/{file_id}` | ✓ | A file's title, location, type, status and dates |
 | `POST` | `/heretto/{credential_id}/resolve` | ✓ | The file a pasted ID, URL or repository path names |

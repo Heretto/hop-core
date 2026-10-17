@@ -45,8 +45,11 @@ class HerettoFolderListing(BaseModel):
 
 
 class HerettoFolderPathRequest(BaseModel):
-    branch: str = Field(min_length=1, max_length=200)
-    repository: str = Field(min_length=1, max_length=200)
+    """A typed path within ``branch``/``repository`` — or, with those left
+    out, a folder ID, Heretto URL or full repository path on its own."""
+
+    branch: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    repository: Optional[str] = Field(default=None, min_length=1, max_length=200)
     path: str = Field(max_length=2000)
 
 

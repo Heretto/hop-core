@@ -11,18 +11,21 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { Observable, Subscription, catchError, of, debounceTime, distinctUntilChanged, switchMap, tap, throwError } from 'rxjs';
+import { Observable, Subscription, catchError, forkJoin, of, debounceTime, distinctUntilChanged, switchMap, tap, throwError } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HerettoConnection } from '../agents/hop-agent.service';
 import {
-  HerettoFailure, HerettoFile, HerettoFileKind, HerettoFolderListing, HerettoFolderRef, HerettoRepository,
-  HerettoSearchResult, HopHerettoService, herettoFailure,
+  HerettoFailure, HerettoFile, HerettoFileKind, HerettoFolder, HerettoFolderListing, HerettoFolderRef,
+  HerettoRepository, HerettoSearchResult, HerettoSelectionMode, HopHerettoService, herettoFailure,
 } from './hop-heretto.service';
 import { HerettoBrowserRow, HopHerettoEntryListComponent } from './hop-heretto-entry-list.component';
-import { HopHerettoFileDetailsComponent } from './hop-heretto-file-details.component';
+import { HerettoFolderSummary, HopHerettoFileDetailsComponent } from './hop-heretto-file-details.component';
 
 export interface HopHerettoBrowserDialogData {
-  /** Defaults to "Select a Heretto file". */
+  /** What can be chosen: one file (the default), any number of files, or one folder.
+   *  The `open…Browser` helpers set it and type the result to match. */
+  selection?: HerettoSelectionMode;
+  /** Defaults to "Select a Heretto file", "Select Heretto files" or "Select a Heretto folder". */
   title?: string;
   /** One line under the title saying what the file is for, e.g. "Choose the map to publish". */
   purpose?: string;
@@ -32,22 +35,49 @@ export interface HopHerettoBrowserDialogData {
   credentialId?: string | null;
   /** Open at this file's folder, with the file selected. */
   fileId?: string | null;
+  /** Choosing many files: start with these chosen (the browser opens at the first one's folder). */
+  selected?: HerettoFile[] | null;
   /** Open at this folder. */
   folderId?: string | null;
-  /** The choose button's label. Defaults to "Select file". */
+  /** The choose button's label. Defaults to "Select file", "Select 3 files" or "Select folder". */
   selectLabel?: string;
   /** Where the app's Credentials page is, linked when Heretto rejects a connection. `null` hides the link. */
   credentialsLink?: string | null;
 }
 
-/** Opens the Heretto file browser; emits the chosen file, or undefined if none was. */
-export function openHerettoFileBrowser(
-  dialog: MatDialog, data: HopHerettoBrowserDialogData = {},
-): Observable<HerettoFile | undefined> {
-  return dialog.open<HopHerettoBrowserDialogComponent, HopHerettoBrowserDialogData, HerettoFile>(
+/** What the browser closes with, by `selection`. */
+export type HopHerettoBrowserResult = HerettoFile | HerettoFile[] | HerettoFolder;
+
+function openBrowser<R extends HopHerettoBrowserResult>(
+  dialog: MatDialog, data: HopHerettoBrowserDialogData,
+): Observable<R | undefined> {
+  return dialog.open<HopHerettoBrowserDialogComponent, HopHerettoBrowserDialogData, R>(
     HopHerettoBrowserDialogComponent,
     { data, width: '1040px', maxWidth: 'calc(100vw - 32px)', autoFocus: '.find-input' },
   ).afterClosed();
+}
+
+/** Opens the Heretto browser to choose one file; emits it, or undefined if none was chosen. */
+export function openHerettoFileBrowser(
+  dialog: MatDialog, data: Omit<HopHerettoBrowserDialogData, 'selection' | 'selected'> = {},
+): Observable<HerettoFile | undefined> {
+  return openBrowser<HerettoFile>(dialog, { ...data, selection: 'file' });
+}
+
+/** Opens the Heretto browser to choose any number of files, across folders; emits them in
+ *  the order they were chosen, or undefined if the browser was cancelled. */
+export function openHerettoFilesBrowser(
+  dialog: MatDialog, data: Omit<HopHerettoBrowserDialogData, 'selection' | 'fileId'> = {},
+): Observable<HerettoFile[] | undefined> {
+  return openBrowser<HerettoFile[]>(dialog, { ...data, selection: 'files' });
+}
+
+/** Opens the Heretto browser to choose a folder: the user opens it and selects it. */
+export function openHerettoFolderBrowser(
+  dialog: MatDialog,
+  data: Omit<HopHerettoBrowserDialogData, 'selection' | 'accept' | 'fileId' | 'selected'> = {},
+): Observable<HerettoFolder | undefined> {
+  return openBrowser<HerettoFolder>(dialog, { ...data, selection: 'folder' });
 }
 
 const PLURAL_KINDS: Record<HerettoFileKind, string> = {
@@ -56,7 +86,7 @@ const PLURAL_KINDS: Record<HerettoFileKind, string> = {
 const STORAGE_KEY = 'hop-heretto-browser';
 const MIN_DEEP_QUERY = 2;
 
-/** Browse and search a Heretto repository by folder and file name, and choose a file. */
+/** Browse and search a Heretto repository by folder and file name, and choose a file, files or a folder. */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'hop-heretto-browser-dialog',
@@ -69,7 +99,7 @@ const MIN_DEEP_QUERY = 2;
   template: `
     <div class="head">
       <div>
-        <h2 id="hop-heretto-browser-title">{{ data.title || 'Select a Heretto file' }}</h2>
+        <h2 id="hop-heretto-browser-title">{{ data.title || defaultTitle }}</h2>
         <p *ngIf="data.purpose">{{ data.purpose }}</p>
       </div>
       <button mat-icon-button type="button" aria-label="Close" (click)="ref.close()"><mat-icon>close</mat-icon></button>
@@ -86,7 +116,7 @@ const MIN_DEEP_QUERY = 2;
     <div class="bar" *ngIf="!noConnections">
       <mat-form-field class="conn" *ngIf="connections.length > 1 && !data.credentialId" subscriptSizing="dynamic">
         <mat-label>Connection</mat-label>
-        <mat-select [value]="credentialId" (selectionChange)="useConnection($event.value)">
+        <mat-select [value]="credentialId" (selectionChange)="switchConnection($event.value)">
           <mat-option *ngFor="let c of connections" [value]="c.id">{{ c.name }} · {{ host(c) }}</mat-option>
         </mat-select>
       </mat-form-field>
@@ -143,19 +173,20 @@ const MIN_DEEP_QUERY = 2;
       <hop-heretto-entry-list class="list"
           [rows]="rows" [loading]="loading || searching" [loadingLabel]="searching ? 'Searching' : 'Loading folder'"
           [error]="error || searchError" [errorTitle]="error ? 'Couldn\\'t open this folder.' : 'Couldn\\'t search this folder.'"
-          [credentialsLink]="credentialsLink" [selectedId]="selected?.id ?? null"
+          [credentialsLink]="credentialsLink" [selected]="selectedIds" [multiple]="mode === 'files'"
           [emptyIcon]="query ? 'search_off' : 'folder_open'" [emptyTitle]="emptyTitle" [emptyHint]="emptyHint"
           (open)="openRow($event)" (pick)="pick($event)" (choose)="pick($event, true)"
           (retry)="retry()" (leave)="ref.close()"></hop-heretto-entry-list>
       <hop-heretto-file-details class="details" [file]="details" [loading]="detailsLoading"
-          [error]="detailsError"></hop-heretto-file-details>
+          [error]="detailsError" [folder]="mode === 'folder' ? folderSummary : null" [hint]="detailsHint"
+          [chosen]="chosenList" (remove)="unchoose($event)" (clear)="clearChosen()"></hop-heretto-file-details>
     </div>
 
     <div class="foot">
-      <span class="status" [class.warn]="searchResult?.truncated">{{ footerLabel }}</span>
+      <span class="status" [class.warn]="searchResult?.truncated || chooseError">{{ chooseError || footerLabel }}</span>
       <button mat-stroked-button type="button" (click)="ref.close()">Cancel</button>
       <button mat-flat-button color="primary" type="button" [disabled]="!canChoose" (click)="chooseSelected()">
-        {{ data.selectLabel || 'Select file' }}
+        {{ data.selectLabel || selectLabel }}
       </button>
     </div>
   `,
@@ -203,7 +234,8 @@ const MIN_DEEP_QUERY = 2;
 })
 export class HopHerettoBrowserDialogComponent implements OnInit {
   readonly data: HopHerettoBrowserDialogData = inject(MAT_DIALOG_DATA, { optional: true }) ?? {};
-  readonly ref = inject(MatDialogRef<HopHerettoBrowserDialogComponent, HerettoFile>);
+  readonly ref = inject(MatDialogRef<HopHerettoBrowserDialogComponent, HopHerettoBrowserResult>);
+  readonly mode: HerettoSelectionMode = this.data.selection ?? 'file';
   private heretto = inject(HopHerettoService);
   private cdr = inject(ChangeDetectorRef);
   private destroyRef = inject(DestroyRef);
@@ -240,6 +272,14 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
   detailsLoading = false;
   detailsError = '';
 
+  /** Choosing many files: what's chosen, in order, with each file's record once it's read. */
+  private chosen = new Map<string, { id: string; name: string; file?: HerettoFile }>();
+  chosenList: { id: string; name: string }[] = [];
+  selectedIds: ReadonlySet<string> = new Set();
+  folderSummary: HerettoFolderSummary | null = null;
+  choosing = false;
+  chooseError = '';
+
   private navigation?: Subscription;
   private searchSub?: Subscription;
   private detailsSub?: Subscription;
@@ -247,6 +287,10 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
   private chooseWhenLoaded = false;
 
   ngOnInit(): void {
+    for (const file of this.mode === 'files' ? this.data.selected ?? [] : []) {
+      this.chosen.set(file.id, { id: file.id, name: file.name, file });
+    }
+    this.syncSelected();
     this.findControl.valueChanges.pipe(
       debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef),
     ).subscribe(value => this.setQuery(value));
@@ -254,14 +298,15 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
     this.heretto.connections().subscribe({
       next: connections => {
         this.connections = connections;
-        const wanted = this.data.credentialId ?? this.remembered().credentialId;
+        const wanted = this.data.credentialId ?? this.data.selected?.[0]?.credential_id ?? this.remembered().credentialId;
         const id = connections.find(c => c.id === wanted)?.id ?? this.data.credentialId ?? connections[0]?.id;
         if (!id) {
           this.noConnections = true;
           this.cdr.markForCheck();
           return;
         }
-        this.useConnection(id, { fileId: this.data.fileId, folderId: this.data.folderId });
+        const first = this.mode === 'files' ? this.data.selected?.[0] : undefined;
+        this.useConnection(id, { fileId: this.data.fileId ?? first?.id, folderId: this.data.folderId });
       },
       error: error => this.fail(error, () => this.ngOnInit()),
     });
@@ -280,6 +325,13 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
       switchMap(repositories => this.startListing(id, repositories, start)),
     );
     this.show(listing$, undefined, true);
+  }
+
+  /** Files chosen through one connection can't be returned with another's, so switching clears them. */
+  switchConnection(id: string): void {
+    this.chosen.clear();
+    this.chooseError = '';
+    this.useConnection(id);
   }
 
   useRepository(key: string): void {
@@ -367,6 +419,11 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
           this.repoKey = this.key(repo);
         }
         this.remember(listing.id);
+        this.folderSummary = {
+          id: listing.id, name: this.crumbLabel(here, this.crumbs.length - 1), path: listing.path,
+          folders: listing.entries.filter(e => e.kind === 'folder').length,
+          files: listing.entries.filter(e => e.kind !== 'folder').length,
+        };
         if (this.findControl.value) this.findControl.setValue('', { emitEvent: false });
         this.query = '';
         if (!keepSelection) this.clearSelection();
@@ -459,7 +516,8 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
 
   private refreshRows(): void {
     const accept = this.data.accept;
-    const blocked = (kind: string) => kind !== 'folder' && !!accept?.length && !accept.includes(kind as HerettoFileKind);
+    const blocked = (kind: string) => kind !== 'folder' && (
+      this.mode === 'folder' || (!!accept?.length && !accept.includes(kind as HerettoFileKind)));
     if (this.searchResult) {
       const base = this.currentPath();
       this.rows = this.searchResult.matches.map(match => ({
@@ -481,6 +539,10 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
 
   pick(row: HerettoBrowserRow, choose = false): void {
     if (row.disabled || !this.credentialId) return;
+    if (this.mode === 'files') {
+      this.toggleChosen(row);
+      return;
+    }
     if (this.selected?.id === row.entry.id && (this.detailsLoading || this.details?.id === row.entry.id)) {
       // Already selected (a double-click's first click): choose once the details are in.
       if (choose && this.details) this.chooseSelected();
@@ -507,11 +569,55 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  /** Choosing many files: a click adds or removes the file, and shows its details. */
+  private toggleChosen(row: HerettoBrowserRow): void {
+    const id = row.entry.id;
+    if (this.chosen.has(id)) this.chosen.delete(id);
+    else this.chosen.set(id, { id, name: row.entry.name });
+    this.chooseError = '';
+    this.syncSelected();
+    const known = this.chosen.get(id)?.file;
+    if (known) {
+      this.detailsSub?.unsubscribe();
+      this.showDetails(known);
+      return;
+    }
+    this.selected = { id, name: row.entry.name };
+    this.details = null;
+    this.detailsError = '';
+    this.detailsLoading = true;
+    this.detailsSub?.unsubscribe();
+    this.detailsSub = this.heretto.file(this.credentialId!, id).subscribe({
+      next: file => this.showDetails(file),
+      error: error => {
+        this.detailsLoading = false;
+        this.detailsError = herettoFailure(error).message;
+        this.cdr.markForCheck();
+      },
+    });
+    this.cdr.markForCheck();
+  }
+
+  unchoose(id: string): void {
+    this.chosen.delete(id);
+    this.chooseError = '';
+    this.syncSelected();
+  }
+
+  clearChosen(): void {
+    this.chosen.clear();
+    this.chooseError = '';
+    this.syncSelected();
+  }
+
   private showDetails(file: HerettoFile): void {
     this.selected = { id: file.id, name: file.name };
     this.details = file;
     this.detailsLoading = false;
     this.detailsError = '';
+    const entry = this.chosen.get(file.id);
+    if (entry) entry.file = file;
+    this.syncSelected();
     this.cdr.markForCheck();
   }
 
@@ -521,15 +627,70 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
     this.details = null;
     this.detailsLoading = false;
     this.detailsError = '';
+    this.syncSelected();
+  }
+
+  /** What the list marks as selected: the one file, or every chosen one. */
+  private syncSelected(): void {
+    const ids = this.mode === 'files' ? [...this.chosen.keys()] : this.selected ? [this.selected.id] : [];
+    this.selectedIds = new Set(ids);
+    this.chosenList = this.mode === 'files' ? [...this.chosen.values()].map(({ id, name }) => ({ id, name })) : [];
   }
 
   get canChoose(): boolean {
+    if (this.choosing) return false;
+    if (this.mode === 'files') return this.chosen.size > 0;
+    if (this.mode === 'folder') return !!this.folder && !this.loading && !this.error;
     const file = this.details;
     return !!file && file.id === this.selected?.id && this.accepts(file.kind);
   }
 
   chooseSelected(): void {
-    if (this.canChoose) this.ref.close(this.details!);
+    if (!this.canChoose) return;
+    if (this.mode === 'folder') {
+      this.ref.close(this.chosenFolder());
+    } else if (this.mode === 'files') {
+      this.closeWithChosen();
+    } else {
+      this.ref.close(this.details!);
+    }
+  }
+
+  /** Reads any chosen file not read yet, then closes with all of them, in the order chosen. */
+  private closeWithChosen(): void {
+    const entries = [...this.chosen.values()];
+    const missing = entries.filter(entry => !entry.file);
+    const done = () => this.ref.close(entries.map(entry => entry.file!));
+    if (!missing.length || !this.credentialId) {
+      done();
+      return;
+    }
+    this.choosing = true;
+    forkJoin(missing.map(entry => this.heretto.file(this.credentialId!, entry.id))).subscribe({
+      next: files => {
+        files.forEach((file, i) => missing[i].file = file);
+        done();
+      },
+      error: error => {
+        this.choosing = false;
+        this.chooseError = `Couldn't read every chosen file: ${herettoFailure(error).message}`;
+        this.cdr.markForCheck();
+      },
+    });
+    this.cdr.markForCheck();
+  }
+
+  private chosenFolder(): HerettoFolder {
+    const folder = this.folder!;
+    return {
+      id: folder.id,
+      name: this.folderSummary?.name ?? folder.name,
+      path: folder.path ?? null,
+      branch: folder.branch ?? null,
+      repository: folder.repository ?? null,
+      credential_id: this.credentialId!,
+      credential_name: this.connections.find(c => c.id === this.credentialId)?.name ?? '',
+    };
   }
 
   private accepts(kind: HerettoFileKind): boolean {
@@ -539,7 +700,25 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
 
   // ── labels ──────────────────────────────────────────────────────────────
 
+  get defaultTitle(): string {
+    return { file: 'Select a Heretto file', files: 'Select Heretto files', folder: 'Select a Heretto folder' }[this.mode];
+  }
+
+  get selectLabel(): string {
+    if (this.mode === 'folder') return 'Select folder';
+    if (this.mode === 'file') return 'Select file';
+    const n = this.chosen.size;
+    return n ? `Select ${n} ${n === 1 ? 'file' : 'files'}` : 'Select files';
+  }
+
+  get detailsHint(): string {
+    return this.mode === 'files'
+      ? 'Select files to choose them; each one shows its details here. Choices are kept as you move between folders.'
+      : 'Select a file to see its title, location and ID. Double-click to choose it straight away.';
+  }
+
   get acceptNote(): string {
+    if (this.mode === 'folder') return 'Open the folder you want, then select it';
     const accept = this.data.accept;
     if (!accept?.length) return '';
     const names = accept.map(kind => PLURAL_KINDS[kind]);
@@ -564,7 +743,11 @@ export class HopHerettoBrowserDialogComponent implements OnInit {
   }
 
   get footerLabel(): string {
-    const chosen = this.selected ? `Selected: ${this.selected.name}` : 'Nothing selected';
+    const chosen = this.mode === 'folder'
+      ? `Folder: ${this.folderSummary?.name ?? '—'}`
+      : this.mode === 'files'
+        ? (this.chosen.size ? `${this.chosen.size} selected` : 'Nothing selected')
+        : this.selected ? `Selected: ${this.selected.name}` : 'Nothing selected';
     const result = this.searchResult;
     if (!result) return chosen;
     const matches = `${result.matches.length} ${result.matches.length === 1 ? 'match' : 'matches'}`;

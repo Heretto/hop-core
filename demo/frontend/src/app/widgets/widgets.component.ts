@@ -25,7 +25,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   HerettoFile, HopConfirmDialogComponent, HopConfirmDialogData, HopDataTableComponent, HopDitaContentComponent,
-  HopHerettoFileFieldComponent, HopTableCellDirective, HopTableColumn, openHerettoFileBrowser,
+  HerettoFolder, HopHerettoFileFieldComponent, HopTableCellDirective, HopTableColumn, openHerettoFileBrowser,
+  openHerettoFilesBrowser, openHerettoFolderBrowser,
 } from '@heretto/hop-ui';
 
 interface Swatch {
@@ -604,19 +605,31 @@ interface MemberRow {
               <hop-heretto-file-field label="Style guide" hint="Any DITA topic or map. Optional."
                   purpose="Choose a style guide" [accept]="['topic', 'map']"
                   [(ngModel)]="styleGuide"></hop-heretto-file-field>
+              <hop-heretto-file-field selection="files" label="Topics to review"
+                  hint="Any number of topics, from any folders." purpose="Choose the topics to review"
+                  [accept]="['topic']" [(ngModel)]="reviewTopics"></hop-heretto-file-field>
+              <hop-heretto-file-field selection="folder" label="Output folder"
+                  hint="Where generated topics are written." purpose="Choose where to write new topics"
+                  [(ngModel)]="outputFolder"></hop-heretto-file-field>
             </div>
             <mat-divider></mat-divider>
             <div class="row">
-              <button mat-stroked-button type="button" (click)="browseHeretto()">
-                <mat-icon>folder_open</mat-icon>
-                Open the file browser
+              <button mat-stroked-button type="button" (click)="browseHeretto('file')">
+                <mat-icon>description</mat-icon> One file
+              </button>
+              <button mat-stroked-button type="button" (click)="browseHeretto('files')">
+                <mat-icon>library_add_check</mat-icon> Several files
+              </button>
+              <button mat-stroked-button type="button" (click)="browseHeretto('folder')">
+                <mat-icon>folder_open</mat-icon> A folder
               </button>
               <span class="section-note">
-                <code>openHerettoFileBrowser(dialog, data)</code> — any file kind.
+                <code>openHerettoFileBrowser</code>, <code>openHerettoFilesBrowser</code> and
+                <code>openHerettoFolderBrowser</code>, with no field.
               </span>
             </div>
-            @if (browsedFile) {
-              <p class="result">Chose <strong>{{ browsedFile.title }}</strong> — <code>{{ browsedFile.id }}</code></p>
+            @if (browsed) {
+              <p class="result">Chose {{ browsed }}</p>
             }
           </mat-card-content>
         </mat-card>
@@ -757,7 +770,9 @@ export class WidgetsComponent {
 
   sourceMap: HerettoFile | null = null;
   styleGuide: HerettoFile | null = null;
-  browsedFile: HerettoFile | null = null;
+  reviewTopics: HerettoFile[] = [];
+  outputFolder: HerettoFolder | null = null;
+  browsed = '';
 
   ditaSource = SAMPLE_TOPIC;
   /** What the Rendered tab shows — set on switching to it, not on every keystroke. */
@@ -842,9 +857,18 @@ export class WidgetsComponent {
     }
   }
 
-  browseHeretto(): void {
-    openHerettoFileBrowser(this.dialog, { purpose: 'Any file — this just shows what comes back' })
-      .subscribe(file => { if (file) this.browsedFile = file; });
+  browseHeretto(selection: 'file' | 'files' | 'folder'): void {
+    const purpose = 'This just shows what comes back';
+    if (selection === 'folder') {
+      openHerettoFolderBrowser(this.dialog, { purpose })
+        .subscribe(folder => { if (folder) this.browsed = `the folder ${folder.name} (${folder.id})`; });
+    } else if (selection === 'files') {
+      openHerettoFilesBrowser(this.dialog, { purpose })
+        .subscribe(files => { if (files) this.browsed = files.map(f => f.title).join(', ') || 'nothing'; });
+    } else {
+      openHerettoFileBrowser(this.dialog, { purpose })
+        .subscribe(file => { if (file) this.browsed = `${file.title} (${file.id})`; });
+    }
   }
 
     resetDita(): void {

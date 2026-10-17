@@ -68,11 +68,14 @@ export { HopAgentChatComponent } from './lib/agents/hop-agent-chat.component';
 export { HopHerettoService, herettoFailure, HERETTO_KIND_LABELS } from './lib/heretto/hop-heretto.service';
 export type {
   HerettoFile, HerettoFileKind, HerettoEntry, HerettoEntryKind, HerettoFolderListing, HerettoFolderRef,
-  HerettoRepository, HerettoSearchMatch, HerettoSearchResult, HerettoFailure,
+  HerettoRepository, HerettoSearchMatch, HerettoSearchResult, HerettoFailure, HerettoFolder, HerettoSelectionMode,
 } from './lib/heretto/hop-heretto.service';
-export { HopHerettoBrowserDialogComponent, openHerettoFileBrowser } from './lib/heretto/hop-heretto-browser-dialog.component';
-export type { HopHerettoBrowserDialogData } from './lib/heretto/hop-heretto-browser-dialog.component';
+export {
+  HopHerettoBrowserDialogComponent, openHerettoFileBrowser, openHerettoFilesBrowser, openHerettoFolderBrowser,
+} from './lib/heretto/hop-heretto-browser-dialog.component';
+export type { HopHerettoBrowserDialogData, HopHerettoBrowserResult } from './lib/heretto/hop-heretto-browser-dialog.component';
 export { HopHerettoFileFieldComponent } from './lib/heretto/hop-heretto-file-field.component';
+export type { HerettoFieldValue } from './lib/heretto/hop-heretto-file-field.component';
 export { HopDataTableComponent, HopTableCellDirective } from './lib/table/hop-data-table.component';
 export type { HopTableColumn, HopTableValue } from './lib/table/hop-data-table.component';
 export { HopDitaContentComponent } from './lib/dita/hop-dita-content.component';

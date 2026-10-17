@@ -73,6 +73,21 @@ export interface HerettoFile {
   credential_name: string;
 }
 
+/** What a picker chooses: one file, any number of files, or one folder. */
+export type HerettoSelectionMode = 'file' | 'files' | 'folder';
+
+/** A chosen Heretto folder. */
+export interface HerettoFolder {
+  id: string;
+  name: string;
+  /** Heretto's path, e.g. master/product/documents/guides. */
+  path?: string | null;
+  branch?: string | null;
+  repository?: string | null;
+  credential_id: string;
+  credential_name: string;
+}
+
 /** Why a Heretto request failed, from a `/heretto` error response. */
 export interface HerettoFailure {
   message: string;
@@ -130,10 +145,13 @@ export class HopHerettoService {
     );
   }
 
-  /** The folder a typed path names (`/guides/install`, a full repository path, or a folder ID/URL). */
-  resolveFolder(credentialId: string, repo: HerettoRepository, path: string): Observable<HerettoFolderListing> {
+  /**
+   * The folder a typed path names. With `repo`, `path` is relative to it (`/guides/install`);
+   * without, it must be a folder ID, Heretto URL or full repository path.
+   */
+  resolveFolder(credentialId: string, repo: HerettoRepository | null, path: string): Observable<HerettoFolderListing> {
     return this.http.post<HerettoFolderListing>(`${this.base(credentialId)}/folders/resolve`, {
-      branch: repo.branch, repository: repo.repository, path,
+      ...(repo ? { branch: repo.branch, repository: repo.repository } : {}), path,
     });
   }
 

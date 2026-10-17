@@ -577,6 +577,22 @@ class HerettoClient:
             trail += segment + "/"
         return current
 
+    async def resolve_folder_identifier(self, identifier: str) -> HerettoFolder:
+        """The folder a pasted identifier names: a folder ID, a Heretto URL
+        containing one, or a full repository path such as
+        ``master/product/documents/guides``."""
+        text = (identifier or "").strip().replace("\\", "/")
+        found = UUID_RE.search(text)
+        if found:
+            return await self.get_folder(found.group(0).lower())
+        parts = [p for p in text.split("/") if p]
+        if len(parts) < 2:
+            raise HerettoError(
+                "Paste a folder ID, a Heretto URL containing one, or a repository path "
+                "like master/product/documents/guides."
+            )
+        return await self.resolve_folder(parts[0], parts[1], "/".join(parts[2:]))
+
     @staticmethod
     def _listing(folder: HerettoFolder) -> str:
         names = sorted([n + "/" for n, _ in folder.folders] + [n for n, _ in folder.resources])

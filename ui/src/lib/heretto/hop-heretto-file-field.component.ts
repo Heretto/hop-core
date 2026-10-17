@@ -9,21 +9,38 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Observable, map, of, switchMap } from 'rxjs';
+import { Observable, map, shareReplay, switchMap } from 'rxjs';
+import { HerettoConnection } from '../agents/hop-agent.service';
 import {
-  HERETTO_KIND_LABELS, HerettoFailure, HerettoFile, HerettoFileKind, HopHerettoService, herettoFailure,
+  HERETTO_KIND_LABELS, HerettoFailure, HerettoFile, HerettoFileKind, HerettoFolder, HerettoFolderListing,
+  HerettoSelectionMode, HopHerettoService, herettoFailure,
 } from './hop-heretto.service';
-import { openHerettoFileBrowser } from './hop-heretto-browser-dialog.component';
+import {
+  HopHerettoBrowserDialogData, openHerettoFileBrowser, openHerettoFilesBrowser, openHerettoFolderBrowser,
+} from './hop-heretto-browser-dialog.component';
+
+/** The field's value, by `selection`: a file, a list of files, or a folder. */
+export type HerettoFieldValue = HerettoFile | HerettoFile[] | HerettoFolder | null;
 
 const ICONS: Record<HerettoFileKind, string> = {
   map: 'account_tree', topic: 'description', image: 'image', other: 'draft',
 };
+const PLACEHOLDERS: Record<HerettoSelectionMode, string> = {
+  file: 'Paste a file ID, Heretto URL or repository path',
+  files: 'Paste a file ID, Heretto URL or repository path to add it',
+  folder: 'Paste a folder ID, Heretto URL or repository path',
+};
 let nextId = 0;
 
 /**
- * A form control holding one Heretto file: paste a file ID, Heretto URL or
- * repository path, or browse for it. Shows the chosen file as a card with
- * Change and Remove. The value is a `HerettoFile`, or null.
+ * A form control for Heretto content: one file (the default), any number of
+ * files, or a folder — set by `selection`. Paste an ID, Heretto URL or
+ * repository path, or browse. A chosen file or folder shows as a card with
+ * Change and Remove; chosen files show as a list, with more added by pasting
+ * or browsing.
+ *
+ * The value is a `HerettoFile` or null, a `HerettoFile[]`, or a
+ * `HerettoFolder` or null.
  */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -37,41 +54,51 @@ let nextId = 0;
   template: `
     <span class="label" *ngIf="label" [id]="ids.label">{{ label }}</span>
 
-    <div class="card" *ngIf="value" role="group" [attr.aria-labelledby]="label ? ids.label : null">
-      <span class="badge"><mat-icon>{{ icon }}</mat-icon></span>
+    <div class="card" *ngIf="file || folder" role="group" [attr.aria-labelledby]="label ? ids.label : null">
+      <span class="badge"><mat-icon>{{ folder ? 'folder' : icon(file!) }}</mat-icon></span>
       <span class="info">
-        <span class="title">{{ value.title }}</span>
-        <span class="path" *ngIf="value.path" [title]="location">{{ location }}</span>
-        <span class="meta">{{ kindLabel }} · {{ value.credential_name }}</span>
+        <span class="title">{{ folder ? folder.name : file!.title }}</span>
+        <span class="path" *ngIf="(folder ?? file)!.path as path" [title]="slashed(path)">{{ slashed(path) }}</span>
+        <span class="meta">{{ folder ? 'Folder' : kindLabel(file!) }} · {{ (folder ?? file)!.credential_name }}</span>
       </span>
       <button mat-stroked-button type="button" [disabled]="disabled" (click)="browse()">Change</button>
-      <button mat-icon-button type="button" [attr.aria-label]="'Remove ' + (label || 'file').toLowerCase()"
+      <button mat-icon-button type="button" [attr.aria-label]="'Remove ' + (label || (folder ? 'folder' : 'file')).toLowerCase()"
               [disabled]="disabled" (click)="clear()"><mat-icon>close</mat-icon></button>
     </div>
 
-    <div class="entry" *ngIf="!value">
+    <ul class="files" *ngIf="files.length" [attr.aria-labelledby]="label ? ids.label : null">
+      <li class="card compact" *ngFor="let item of files; trackBy: trackId">
+        <span class="badge"><mat-icon>{{ icon(item) }}</mat-icon></span>
+        <span class="info">
+          <span class="title">{{ item.title }}</span>
+          <span class="path" *ngIf="item.path" [title]="slashed(item.path)">{{ slashed(item.path) }}</span>
+        </span>
+        <button mat-icon-button type="button" [attr.aria-label]="'Remove ' + item.title" [disabled]="disabled"
+                (click)="removeFile(item.id)"><mat-icon>close</mat-icon></button>
+      </li>
+    </ul>
+
+    <div class="entry" *ngIf="!file && !folder">
       <mat-form-field subscriptSizing="dynamic">
-        <input matInput [formControl]="text" [placeholder]="placeholder"
-               [attr.aria-label]="(label || 'Heretto file') + ' ID, URL or path'"
+        <input matInput [formControl]="text" [placeholder]="placeholder || placeholders[selection]"
+               [attr.aria-label]="(label || 'Heretto ' + (selection === 'folder' ? 'folder' : 'file')) + ' ID, URL or path'"
                [attr.aria-invalid]="!!error" [attr.aria-describedby]="error ? ids.error : (hint ? ids.hint : null)"
                (keydown.enter)="resolveText(); $event.preventDefault()" (blur)="onBlur()">
         <mat-spinner matSuffix diameter="18" *ngIf="resolving"></mat-spinner>
       </mat-form-field>
-      <button *ngIf="required" mat-flat-button color="primary" type="button" [disabled]="disabled" (click)="browse()">
-        Browse…
-      </button>
-      <button *ngIf="!required" mat-stroked-button type="button" [disabled]="disabled" (click)="browse()">
-        <mat-icon>folder_open</mat-icon> Browse…
-      </button>
+      <button *ngIf="required && !files.length" mat-flat-button color="primary" type="button" [disabled]="disabled"
+              (click)="browse()">Browse…</button>
+      <button *ngIf="!(required && !files.length)" mat-stroked-button type="button" [disabled]="disabled"
+              (click)="browse()"><mat-icon>folder_open</mat-icon> Browse…</button>
     </div>
 
-    <div class="error" *ngIf="error && !value" [id]="ids.error" role="alert">
+    <div class="error" *ngIf="error && !file && !folder" [id]="ids.error" role="alert">
       <mat-icon>error</mat-icon>
       <span>{{ error.message }}
         <button type="button" class="link" *ngIf="error.folder_id" (click)="browse(error.folder_id)">Browse this folder</button>
       </span>
     </div>
-    <span class="hint" *ngIf="hint && !(error && !value)" [id]="ids.hint">{{ hint }}</span>
+    <span class="hint" *ngIf="hint && !(error && !file && !folder)" [id]="ids.hint">{{ hint }}</span>
   `,
   styles: [`
     :host { display: flex; flex-direction: column; gap: 8px; }
@@ -92,6 +119,9 @@ let nextId = 0;
     }
     .meta { font-size: 12px; color: var(--text-tertiary); }
     .card button[mat-icon-button] { color: var(--text-secondary); }
+    .files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .compact { gap: 12px; padding: 6px 6px 6px 10px; }
+    .compact .badge { width: 32px; height: 32px; }
     .entry { display: flex; align-items: center; gap: 8px; }
     .entry mat-form-field { flex: 1; min-width: 0; margin-top: 0; }
     .entry button { flex-shrink: 0; }
@@ -102,7 +132,7 @@ let nextId = 0;
       text-decoration: underline; cursor: pointer;
     }
     .hint { font-size: 12px; color: var(--text-secondary); }
-    @media (max-width: 768px) { .card { flex-wrap: wrap; } .info { flex-basis: calc(100% - 54px); } }
+    @media (max-width: 768px) { .card:not(.compact) { flex-wrap: wrap; } .card:not(.compact) .info { flex-basis: calc(100% - 54px); } }
   `],
 })
 export class HopHerettoFileFieldComponent implements ControlValueAccessor {
@@ -110,6 +140,8 @@ export class HopHerettoFileFieldComponent implements ControlValueAccessor {
   private dialog = inject(MatDialog);
   private cdr = inject(ChangeDetectorRef);
 
+  /** What the field holds: one file (the default), any number of files, or a folder. */
+  @Input() selection: HerettoSelectionMode = 'file';
   /** Shown above the field. */
   @Input() label = '';
   /** Shown below the field, e.g. "The map this app publishes." */
@@ -117,53 +149,61 @@ export class HopHerettoFileFieldComponent implements ControlValueAccessor {
   /** The browser dialog's subtitle: what the file is for. */
   @Input() purpose = '';
   @Input() dialogTitle?: string;
-  /** The kinds that can be chosen. Omit for any file. */
+  /** The kinds of file that can be chosen. Omit for any file; ignored for a folder. */
   @Input() accept: HerettoFileKind[] | null = null;
   /** Read and browse through this connection. Otherwise the organization's first, and the browser offers all. */
   @Input() credentialId: string | null = null;
   /** Makes Browse the primary action while the field is empty. */
   @Input() required = false;
-  @Input() placeholder = 'Paste a file ID, Heretto URL or repository path';
+  /** Defaults to a prompt for the selection mode. */
+  @Input() placeholder = '';
   /** Where the app's Credentials page is; see `HopHerettoBrowserDialogData.credentialsLink`. */
   @Input() credentialsLink?: string | null;
-  /** The chosen file, as it changes (the form control gets it too). */
-  @Output() fileChange = new EventEmitter<HerettoFile | null>();
+  /** The value, as it changes (the form control gets it too). */
+  @Output() fileChange = new EventEmitter<HerettoFieldValue>();
 
   readonly ids = (n => ({ label: `hop-hff-${n}-l`, hint: `hop-hff-${n}-h`, error: `hop-hff-${n}-e` }))(nextId++);
   readonly text = new FormControl('', { nonNullable: true });
+  readonly placeholders = PLACEHOLDERS;
 
-  value: HerettoFile | null = null;
+  file: HerettoFile | null = null;
+  files: HerettoFile[] = [];
+  folder: HerettoFolder | null = null;
   disabled = false;
   resolving = false;
   error: HerettoFailure | null = null;
   private resolvedText = '';
-  private onChange: (value: HerettoFile | null) => void = () => undefined;
+  private connections$?: Observable<HerettoConnection[]>;
+  private onChange: (value: HerettoFieldValue) => void = () => undefined;
   private onTouched: () => void = () => undefined;
 
-  get icon(): string {
-    return this.value ? ICONS[this.value.kind] : 'draft';
+  icon(file: HerettoFile): string {
+    return ICONS[file.kind];
   }
 
-  get kindLabel(): string {
-    return this.value ? HERETTO_KIND_LABELS[this.value.kind] : '';
+  kindLabel(file: HerettoFile): string {
+    return HERETTO_KIND_LABELS[file.kind];
   }
 
-  get location(): string {
-    const path = this.value?.path ?? '';
+  slashed(path: string): string {
     return path.startsWith('/') ? path : '/' + path;
   }
 
+  trackId = (_: number, item: HerettoFile) => item.id;
+
   // ── ControlValueAccessor ────────────────────────────────────────────────
 
-  writeValue(value: HerettoFile | null): void {
-    this.value = value ?? null;
+  writeValue(value: HerettoFieldValue): void {
+    this.file = this.selection === 'file' ? (value as HerettoFile | null) ?? null : null;
+    this.files = this.selection === 'files' && Array.isArray(value) ? [...value] : [];
+    this.folder = this.selection === 'folder' ? (value as HerettoFolder | null) ?? null : null;
     this.error = null;
     this.text.setValue('', { emitEvent: false });
     this.resolvedText = '';
     this.cdr.markForCheck();
   }
 
-  registerOnChange(fn: (value: HerettoFile | null) => void): void {
+  registerOnChange(fn: (value: HerettoFieldValue) => void): void {
     this.onChange = fn;
   }
 
@@ -185,7 +225,7 @@ export class HopHerettoFileFieldComponent implements ControlValueAccessor {
     this.resolveText();
   }
 
-  /** Checks the pasted text against Heretto and, if it names an acceptable file, chooses it. */
+  /** Checks the pasted text against Heretto and, if it names something acceptable, chooses it. */
   resolveText(): void {
     const identifier = this.text.value.trim();
     if (!identifier) {
@@ -195,61 +235,126 @@ export class HopHerettoFileFieldComponent implements ControlValueAccessor {
     if (this.resolving || identifier === this.resolvedText) return;
     this.resolving = true;
     this.resolvedText = identifier;
+    const done = () => { this.resolving = false; this.cdr.markForCheck(); };
+    const fail = (error: unknown) => { this.error = herettoFailure(error); done(); };
+
+    if (this.selection === 'folder') {
+      this.connection().pipe(
+        switchMap(connection => this.heretto.resolveFolder(connection.id, null, identifier).pipe(
+          map(listing => this.toFolder(listing, connection)),
+        )),
+      ).subscribe({ next: folder => { this.setFolder(folder); done(); }, error: fail });
+      return;
+    }
     this.connection().pipe(
-      switchMap(credentialId => this.heretto.resolve(credentialId, identifier)),
+      switchMap(connection => this.heretto.resolve(connection.id, identifier)),
     ).subscribe({
       next: file => {
-        this.resolving = false;
-        if (this.accepts(file.kind)) {
-          this.set(file);
-        } else {
+        if (!this.accepts(file.kind)) {
           this.error = { message: `That's ${this.article(file.kind)}. ${this.acceptText}`, reason: 'error', folder_id: file.folder_id };
+        } else if (this.selection === 'files') {
+          if (this.files.some(f => f.id === file.id)) {
+            this.error = { message: `${file.title} is already on the list.`, reason: 'error' };
+          } else {
+            this.setFiles([...this.files, file]);
+          }
+        } else {
+          this.setFile(file);
         }
-        this.cdr.markForCheck();
+        done();
       },
-      error: error => {
-        this.resolving = false;
-        this.error = herettoFailure(error);
-        this.cdr.markForCheck();
-      },
+      error: fail,
     });
   }
 
-  /** Opens the browser — at the chosen file, at `folderId`, or where it was last left. */
+  /** Opens the browser — at what's chosen, at `folderId`, or where it was last left. */
   browse(folderId?: string | null): void {
-    openHerettoFileBrowser(this.dialog, {
+    const base: HopHerettoBrowserDialogData = {
       title: this.dialogTitle,
       purpose: this.purpose || undefined,
-      accept: this.accept,
-      credentialId: (!folderId && this.value?.credential_id) || this.credentialId,
-      fileId: folderId ? null : this.value?.id ?? null,
-      folderId: folderId ?? null,
       credentialsLink: this.credentialsLink,
-    }).subscribe(file => {
-      if (file) this.set(file);
-    });
+      folderId: folderId ?? null,
+    };
+    if (this.selection === 'folder') {
+      openHerettoFolderBrowser(this.dialog, {
+        ...base,
+        credentialId: (!folderId && this.folder?.credential_id) || this.credentialId,
+        folderId: folderId ?? this.folder?.id ?? null,
+      }).subscribe(folder => { if (folder) this.setFolder(folder); });
+    } else if (this.selection === 'files') {
+      openHerettoFilesBrowser(this.dialog, {
+        ...base,
+        accept: this.accept,
+        credentialId: this.files[0]?.credential_id || this.credentialId,
+        selected: this.files,
+      }).subscribe(files => { if (files) this.setFiles(files); });
+    } else {
+      openHerettoFileBrowser(this.dialog, {
+        ...base,
+        accept: this.accept,
+        credentialId: (!folderId && this.file?.credential_id) || this.credentialId,
+        fileId: folderId ? null : this.file?.id ?? null,
+      }).subscribe(file => { if (file) this.setFile(file); });
+    }
   }
 
   clear(): void {
-    this.set(null);
+    if (this.selection === 'folder') this.setFolder(null);
+    else if (this.selection === 'files') this.setFiles([]);
+    else this.setFile(null);
   }
 
-  private set(file: HerettoFile | null): void {
-    this.value = file;
+  removeFile(id: string): void {
+    this.setFiles(this.files.filter(f => f.id !== id));
+  }
+
+  private setFile(file: HerettoFile | null): void {
+    this.file = file;
+    this.emit(file);
+  }
+
+  private setFiles(files: HerettoFile[]): void {
+    this.files = files;
+    this.emit([...files]);
+  }
+
+  private setFolder(folder: HerettoFolder | null): void {
+    this.folder = folder;
+    this.emit(folder);
+  }
+
+  private emit(value: HerettoFieldValue): void {
     this.error = null;
     this.text.setValue('', { emitEvent: false });
     this.resolvedText = '';
-    this.onChange(file);
+    this.onChange(value);
     this.onTouched();
-    this.fileChange.emit(file);
+    this.fileChange.emit(value);
     this.cdr.markForCheck();
   }
 
-  private connection(): Observable<string> {
-    if (this.credentialId) return of(this.credentialId);
-    return this.heretto.connections().pipe(map(connections => {
-      if (!connections.length) throw { error: { detail: { message: 'No Heretto connection is set up. Add one under Credentials.', reason: 'error' } } };
-      return connections[0].id;
+  private toFolder(listing: HerettoFolderListing, connection: HerettoConnection): HerettoFolder {
+    const isRoot = listing.name === 'documents' && !!listing.repository && !listing.parent_id;
+    return {
+      id: listing.id,
+      name: isRoot ? listing.repository! : listing.name,
+      path: listing.path ?? null,
+      branch: listing.branch ?? null,
+      repository: listing.repository ?? null,
+      credential_id: connection.id,
+      credential_name: connection.name,
+    };
+  }
+
+  /** The connection to read pasted identifiers through: `credentialId`, else the organization's first. */
+  private connection(): Observable<HerettoConnection> {
+    this.connections$ ??= this.heretto.connections().pipe(shareReplay(1));
+    return this.connections$.pipe(map(connections => {
+      const connection = this.credentialId ? connections.find(c => c.id === this.credentialId) : connections[0];
+      if (!connection) {
+        throw { error: { detail: { message: 'No Heretto connection is set up. Add one under Credentials.', reason: 'error' } } };
+      }
+      return connection;
     }));
   }
 
