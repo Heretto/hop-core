@@ -40,6 +40,7 @@ export { HopResetPasswordComponent } from './lib/auth/hop-reset-password.compone
 export { HopSSOCallbackComponent } from './lib/auth/hop-sso-callback.component';
 export { HopAcceptInvitationComponent } from './lib/auth/hop-accept-invitation.component';
 export { HopMainLayoutComponent } from './lib/layout/hop-main-layout.component';
+export type { HopNavMode } from './lib/layout/hop-main-layout.component';
 export { HERETTO_OPEN_PROJECTS_LOGO } from './lib/layout/heretto-open-projects-logo';
 export type { NavItem } from './lib/layout/nav-item.model';
 export { HopAdminComponent } from './lib/admin/hop-admin.component';

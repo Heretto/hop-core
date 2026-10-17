@@ -41,7 +41,7 @@ Also **DTD sets**: organization admins upload their own DITA grammar — a zip o
 | `HopAgentsComponent` + `HopAgentEditorComponent` | Agent management — a list page plus a full create/edit page with tabs for the AI configuration, context files, references, memory, and a chat panel for testing the agent |
 | `HopHerettoFileFieldComponent`, `openHerettoFileBrowser()` + `HopHerettoService` | Choosing a file in Heretto — a form field that takes a pasted ID, URL or path or opens the file browser, and the browser dialog itself: repositories, folders, find by name, file details, limited to the kinds you accept |
 | `HopDitaContentComponent` + `HopDitaService` | `<hop-dita-content>` shows rendered DITA — `[html]` from your backend's `DitaRenderer`, or `[dita]` rendered via `POST /dita/render` — styled by the theme, with in-topic links scrolling in place and other links reported through `(linkClick)` |
-| `HopMainLayoutComponent` | App shell with sidebar navigation, header, and router outlet |
+| `HopMainLayoutComponent` | App shell with sidebar navigation, header, and router outlet. The sidebar can be pinned open or collapsed to an icon rail that springs open on hover; each user's choice is remembered, and `navMode` sets the default |
 | `HopAuthService` | Reactive auth state, token refresh, login/logout |
 | `hopAuthGuard` | Route guard — redirects unauthenticated users to login |
 | `hopAdminGuard` | Route guard — restricts routes to org admins |
