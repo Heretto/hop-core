@@ -6,6 +6,7 @@ import pytest
 from hop_core.agents import (
     AgentDefinition,
     AgentNotConfigured,
+    AgentRequest,
     AgentRunner,
     AiConfiguration,
     AiProviderError,
@@ -432,3 +433,144 @@ class TestChatEndpoint:
                            headers=agent_with_configuration["headers"]).json()
         assert after["feedback_memory"] == ""
         assert len(after["context_files"]) == 1
+
+
+# ── What the reply says about itself ──────────────────────────────────────────
+
+class TestReplyDetails:
+    """Why the model stopped and what it spent; a reply with no text because the
+    budget ran out is an error that says so, not an empty string."""
+
+    REQUEST = GenerationRequest(system_prompt="s", user_prompt="p", max_tokens=2000)
+
+    async def test_anthropic_reports_the_stop_reason_and_tokens(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": "Report"}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 2151, "output_tokens": 3339,
+                      "output_tokens_details": {"thinking_tokens": 1156}},
+        }))
+        result = await providers.generate_with_anthropic("k", "m", self.REQUEST)
+        assert (
+            result.content, result.stop_reason, result.input_tokens, result.output_tokens, result.thinking_tokens,
+        ) == ("Report", "end_turn", 2151, 3339, 1156)
+
+    async def test_anthropic_reply_with_no_text_after_the_budget_is_an_error(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "content": [{"type": "thinking", "thinking": ""}],
+            "stop_reason": "max_tokens",
+            "usage": {"output_tokens": 2000, "output_tokens_details": {"thinking_tokens": 2000}},
+        }))
+        with pytest.raises(AiProviderError) as excinfo:
+            await providers.generate_with_anthropic("k", "m", self.REQUEST)
+        assert str(excinfo.value) == (
+            "Anthropic ran out of room before writing a reply: the 2,000-token max_tokens "
+            "budget was used up, 2,000 of them thinking. Raise max_tokens."
+        )
+
+    async def test_the_default_budget_is_named_when_the_request_sets_none(self, fake_http):
+        fake_http(FakeResponse(200, {"content": [], "stop_reason": "max_tokens"}))
+        with pytest.raises(AiProviderError, match=f"the {providers.DEFAULT_MAX_TOKENS:,}-token"):
+            await providers.generate_with_anthropic("k", "m",
+                GenerationRequest(system_prompt="s", user_prompt="p", max_tokens=None))
+
+    async def test_a_cut_off_reply_with_text_is_returned(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "content": [{"type": "text", "text": "Half a rep"}], "stop_reason": "max_tokens",
+        }))
+        result = await providers.generate_with_anthropic("k", "m", self.REQUEST)
+        assert (result.content, result.stop_reason, result.output_tokens, result.thinking_tokens) == (
+            "Half a rep", "max_tokens", None, None
+        )
+
+    async def test_an_empty_reply_that_finished_is_not_an_error(self, fake_http):
+        fake_http(FakeResponse(200, {"content": [], "stop_reason": "end_turn"}))
+        result = await providers.generate_with_anthropic("k", "m", self.REQUEST)
+        assert (result.content, result.stop_reason) == ("", "end_turn")
+
+    async def test_openai_reports_the_finish_reason_and_tokens(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "choices": [{"message": {"content": "Report"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1800, "completion_tokens": 900,
+                      "completion_tokens_details": {"reasoning_tokens": 300}},
+        }))
+        result = await providers.generate_with_openai("k", "m", self.REQUEST)
+        assert (
+            result.content, result.stop_reason, result.input_tokens, result.output_tokens, result.thinking_tokens,
+        ) == ("Report", "stop", 1800, 900, 300)
+
+    async def test_openai_reply_with_no_text_after_the_budget_is_an_error(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "choices": [{"message": {"content": None}, "finish_reason": "length"}],
+            "usage": {"completion_tokens": 2000, "completion_tokens_details": {"reasoning_tokens": 2000}},
+        }))
+        with pytest.raises(AiProviderError, match="OpenAI ran out of room .* 2,000 of them thinking"):
+            await providers.generate_with_openai("k", "m", self.REQUEST)
+
+    async def test_gemini_reports_the_finish_reason_and_tokens(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "candidates": [{"content": {"parts": [{"text": "Report"}]}, "finishReason": "STOP"}],
+            "usageMetadata": {"promptTokenCount": 1500, "candidatesTokenCount": 700, "thoughtsTokenCount": 250},
+        }))
+        result = await providers.generate_with_gemini("k", "m", self.REQUEST)
+        assert (
+            result.content, result.stop_reason, result.input_tokens, result.output_tokens, result.thinking_tokens,
+        ) == ("Report", "STOP", 1500, 700, 250)
+
+    async def test_gemini_reply_with_no_text_after_the_budget_is_an_error(self, fake_http):
+        fake_http(FakeResponse(200, {
+            "candidates": [{"content": {"parts": []}, "finishReason": "MAX_TOKENS"}],
+            "usageMetadata": {"candidatesTokenCount": 2000, "thoughtsTokenCount": 2000},
+        }))
+        with pytest.raises(AiProviderError, match="Google Gemini ran out of room"):
+            await providers.generate_with_gemini("k", "m", self.REQUEST)
+
+    async def test_tool_calls_that_never_end_are_an_error(self, fake_http):
+        async def executor(name, args):
+            return "fetched"
+
+        tool_turn = FakeResponse(200, {
+            "stop_reason": "tool_use",
+            "content": [{"type": "tool_use", "id": "t1", "name": "read_url",
+                         "input": {"url": "https://docs.example.com"}}],
+        })
+        client = fake_http(*[tool_turn] * providers.MAX_TOOL_ITERATIONS)
+        request = GenerationRequest(system_prompt="s", user_prompt="p", tools=[providers.READ_URL_TOOL])
+        with pytest.raises(AiProviderError, match="kept calling tools: gave up after 5 rounds"):
+            await providers._generate_with_anthropic_tools("k", "m", request, executor)
+        assert len(client.requests) == providers.MAX_TOOL_ITERATIONS
+
+    async def test_a_tool_round_that_ends_with_no_text_after_the_budget_is_an_error(self, fake_http):
+        async def executor(name, args):
+            return "fetched"
+
+        fake_http(
+            FakeResponse(200, {
+                "stop_reason": "tool_use",
+                "content": [{"type": "tool_use", "id": "t1", "name": "read_url", "input": {"url": "u"}}],
+            }),
+            FakeResponse(200, {"stop_reason": "max_tokens", "content": [{"type": "thinking", "thinking": ""}]}),
+        )
+        request = GenerationRequest(system_prompt="s", user_prompt="p", max_tokens=500, tools=[providers.READ_URL_TOOL])
+        with pytest.raises(AiProviderError, match="the 500-token max_tokens budget"):
+            await providers._generate_with_anthropic_tools("k", "m", request, executor)
+
+    async def test_the_run_result_carries_the_reply_details(self):
+        class Service:
+            async def generate(self, request):
+                return providers.GenerationResponse(
+                    content="Report", stop_reason="end_turn", input_tokens=50, output_tokens=10, thinking_tokens=4,
+                )
+
+        result = await AgentRunner(Service()).run(make_definition(), AgentRequest(instructions="i", input="x"))
+        assert (
+            result.output, result.stop_reason, result.input_tokens, result.output_tokens, result.thinking_tokens,
+        ) == ("Report", "end_turn", 50, 10, 4)
+
+    async def test_a_service_that_says_nothing_about_its_reply(self):
+        result = await AgentRunner(RecordingService("Hi")).chat(
+            make_definition(), [ChatMessage(role="user", content="hello")]
+        )
+        assert (
+            result.output, result.stop_reason, result.input_tokens, result.output_tokens, result.thinking_tokens,
+        ) == ("Hi", None, None, None, None)

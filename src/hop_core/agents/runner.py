@@ -38,6 +38,16 @@ class AgentRequest(BaseModel):
     temperature: Optional[float] = None
 
 
+def _reply_details(result) -> dict:
+    """The reply's stop reason and token counts, from services that report them
+    (hop-core's providers do; a service of the app's own may not)."""
+    return {
+        key: value
+        for key in ("stop_reason", "input_tokens", "output_tokens", "thinking_tokens")
+        if (value := getattr(result, key, None)) is not None
+    }
+
+
 class AgentRunResult(BaseModel):
     """What the agent returns to the workflow."""
 
@@ -51,6 +61,12 @@ class AgentRunResult(BaseModel):
         default="",
         description="The prompt the agent ran with, for logging and debugging.",
     )
+    # What the provider said about its reply, when it says (GenerationResponse):
+    # why the model stopped, and the tokens it spent, thinking included.
+    stop_reason: Optional[str] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    thinking_tokens: Optional[int] = None
 
 
 class AgentRunner:
@@ -218,6 +234,7 @@ class AgentRunner:
             provider=configuration.provider,
             model=configuration.model,
             system_prompt=system_prompt,
+            **_reply_details(result),
         )
 
     async def run(
@@ -260,4 +277,5 @@ class AgentRunner:
             provider=configuration.provider,
             model=configuration.model,
             system_prompt=system_prompt,
+            **_reply_details(result),
         )

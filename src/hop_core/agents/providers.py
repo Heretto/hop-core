@@ -48,6 +48,86 @@ class GenerationResponse(BaseModel):
     """What a provider produced."""
 
     content: str
+    #: Why the model stopped, as the vendor reports it: Anthropic ``end_turn`` /
+    #: ``max_tokens``, OpenAI ``stop`` / ``length``, Gemini ``STOP`` / ``MAX_TOKENS``.
+    stop_reason: Optional[str] = None
+    #: Tokens in the prompt, in the reply, and how many of the reply's the
+    #: model spent thinking before it answered (inside ``max_tokens``, so they
+    #: can use it all up).
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    thinking_tokens: Optional[int] = None
+
+
+#: What each vendor reports when the reply hit ``max_tokens``.
+CUT_OFF_REASONS = {"max_tokens", "length", "MAX_TOKENS"}
+
+
+def _reply(
+    provider: str,
+    content: str,
+    stop_reason: Optional[str],
+    input_tokens: Optional[int],
+    output_tokens: Optional[int],
+    thinking_tokens: Optional[int],
+    max_tokens: int,
+) -> GenerationResponse:
+    """The response, unless it has no text because the budget ran out.
+
+    Reasoning models (Claude 5, o-series, Gemini 2.5+) think before they
+    answer, inside ``max_tokens``, so a budget sized for the text alone can
+    be spent before the text starts. Returning "" would read as the model
+    having had nothing to say; the error says what to change.
+    """
+    if not content.strip() and stop_reason in CUT_OFF_REASONS:
+        spent = f", {thinking_tokens:,} of them thinking" if thinking_tokens else ""
+        raise AiProviderError(
+            f"{provider} ran out of room before writing a reply: the {max_tokens:,}-token "
+            f"max_tokens budget was used up{spent}. Raise max_tokens."
+        )
+    return GenerationResponse(
+        content=content, stop_reason=stop_reason, input_tokens=input_tokens,
+        output_tokens=output_tokens, thinking_tokens=thinking_tokens,
+    )
+
+
+def _anthropic_reply(data: Dict[str, Any], max_tokens: int) -> GenerationResponse:
+    blocks = data.get("content") or []
+    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    usage = data.get("usage") or {}
+    details = usage.get("output_tokens_details") or {}
+    return _reply(
+        "Anthropic", text, data.get("stop_reason"), usage.get("input_tokens"),
+        usage.get("output_tokens"), details.get("thinking_tokens"), max_tokens,
+    )
+
+
+def _openai_reply(data: Dict[str, Any], max_tokens: int) -> GenerationResponse:
+    choice = (data.get("choices") or [{}])[0]
+    usage = data.get("usage") or {}
+    details = usage.get("completion_tokens_details") or {}
+    return _reply(
+        "OpenAI", choice.get("message", {}).get("content") or "", choice.get("finish_reason"),
+        usage.get("prompt_tokens"), usage.get("completion_tokens"), details.get("reasoning_tokens"),
+        max_tokens,
+    )
+
+
+def _gemini_reply(data: Dict[str, Any], max_tokens: int) -> GenerationResponse:
+    candidate = (data.get("candidates") or [{}])[0]
+    parts = candidate.get("content", {}).get("parts") or []
+    usage = data.get("usageMetadata") or {}
+    return _reply(
+        "Google Gemini", "".join(p.get("text", "") for p in parts), candidate.get("finishReason"),
+        usage.get("promptTokenCount"), usage.get("candidatesTokenCount"), usage.get("thoughtsTokenCount"),
+        max_tokens,
+    )
+
+
+def _gave_up(provider: str) -> AiProviderError:
+    return AiProviderError(
+        f"{provider} kept calling tools: gave up after {MAX_TOOL_ITERATIONS} rounds without a reply."
+    )
 
 
 #: ``(api_key, model, request) -> response``
@@ -140,9 +220,7 @@ async def generate_with_anthropic(
     if response.status_code != 200:
         raise _fail("Anthropic", response)
 
-    blocks = response.json().get("content") or []
-    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
-    return GenerationResponse(content=text)
+    return _anthropic_reply(response.json(), body["max_tokens"])
 
 
 # ── OpenAI ────────────────────────────────────────────────────────────────────
@@ -175,8 +253,7 @@ async def generate_with_openai(
     if response.status_code != 200:
         raise _fail("OpenAI", response)
 
-    choices = response.json().get("choices") or [{}]
-    return GenerationResponse(content=choices[0].get("message", {}).get("content") or "")
+    return _openai_reply(response.json(), request.max_tokens or DEFAULT_MAX_TOKENS)
 
 
 # ── Google Gemini ─────────────────────────────────────────────────────────────
@@ -210,9 +287,7 @@ async def generate_with_gemini(
     if response.status_code != 200:
         raise _fail("Google Gemini", response)
 
-    candidates = response.json().get("candidates") or [{}]
-    parts = candidates[0].get("content", {}).get("parts") or []
-    return GenerationResponse(content="".join(p.get("text", "") for p in parts))
+    return _gemini_reply(response.json(), body["generationConfig"]["maxOutputTokens"])
 
 
 BUILTIN_GENERATORS: Dict[str, ProviderGenerator] = {
@@ -373,10 +448,9 @@ async def _generate_with_anthropic_tools(
                     )
             messages.append({"role": "user", "content": tool_results})
         else:
-            text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
-            return GenerationResponse(content=text)
+            return _anthropic_reply(data, body["max_tokens"])
 
-    return GenerationResponse(content="")
+    raise _gave_up("Anthropic")
 
 
 async def _generate_with_openai_tools(
@@ -419,7 +493,8 @@ async def _generate_with_openai_tools(
         if response.status_code != 200:
             raise _fail("OpenAI", response)
 
-        choice = (response.json().get("choices") or [{}])[0]
+        data = response.json()
+        choice = (data.get("choices") or [{}])[0]
         message = choice.get("message", {})
 
         if choice.get("finish_reason") == "tool_calls":
@@ -435,9 +510,9 @@ async def _generate_with_openai_tools(
                     {"role": "tool", "tool_call_id": tc["id"], "content": result}
                 )
         else:
-            return GenerationResponse(content=message.get("content") or "")
+            return _openai_reply(data, request.max_tokens or DEFAULT_MAX_TOKENS)
 
-    return GenerationResponse(content="")
+    raise _gave_up("OpenAI")
 
 
 async def _generate_with_gemini_tools(
@@ -482,7 +557,8 @@ async def _generate_with_gemini_tools(
         if response.status_code != 200:
             raise _fail("Google Gemini", response)
 
-        candidates = response.json().get("candidates") or [{}]
+        data = response.json()
+        candidates = data.get("candidates") or [{}]
         content = candidates[0].get("content", {})
         parts = content.get("parts") or []
 
@@ -498,9 +574,9 @@ async def _generate_with_gemini_tools(
                     )
             contents.append({"role": "user", "parts": fn_responses})
         else:
-            return GenerationResponse(content="".join(p.get("text", "") for p in parts))
+            return _gemini_reply(data, body["generationConfig"]["maxOutputTokens"])
 
-    return GenerationResponse(content="")
+    raise _gave_up("Google Gemini")
 
 
 #: Tool-aware generator type.
