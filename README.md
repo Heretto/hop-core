@@ -632,6 +632,17 @@ owns *which* model, the job owns *how hard it thinks*. Running an agent with no
 configuration raises `AgentNotConfigured` rather than quietly falling back to a
 service default.
 
+`max_tokens` bounds everything the model emits for the reply, its thinking
+included: Claude 5, OpenAI's o-series and Gemini 2.5+ think before they answer,
+and that thinking counts against the budget, so size it for thinking plus text
+(a one-page report can take 3–4k tokens). The result says what the model did:
+`result.stop_reason` (the vendor's own value — `end_turn` / `max_tokens`,
+`stop` / `length`, `STOP` / `MAX_TOKENS`), `result.input_tokens`,
+`result.output_tokens` and `result.thinking_tokens`. A reply cut off before any text raises
+`AiProviderError` saying the budget ran out, as does a model that keeps calling
+tools without answering; a reply cut off mid-text comes back with its
+`stop_reason` saying so, for the app to decide about.
+
 `ai_service` is any object with an `async generate(request) -> result` method
 exposing `.content` (`hop_core.ai.SupportsGenerate`) — hop-core does not pick a
 model vendor and fetches no keys; the host app's service decrypts the
