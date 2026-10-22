@@ -46,16 +46,26 @@ interface CredentialGroup {
   ],
   template: `
     <div class="credentials-container hop-page">
-      <h1>Credentials</h1>
-      <p class="page-intro">
-        Connections this application uses. Secrets are encrypted at rest and never
-        sent back to the browser.
-      </p>
+      <div class="page-header">
+        <div>
+          <h1>Credentials</h1>
+          <p class="page-intro">
+            Connections this application uses. Secrets are encrypted at rest and never
+            sent back to the browser.
+          </p>
+        </div>
+        <button mat-raised-button color="primary"
+                *ngIf="!loading && currentGroup"
+                (click)="addCredential(currentGroup!)">
+          <mat-icon>add</mat-icon>
+          Add {{ currentGroup?.label }}
+        </button>
+      </div>
 
       <mat-card class="loading-card" *ngIf="loading">
         <mat-card-content>
           <mat-spinner></mat-spinner>
-          <p>Loading credentials...</p>
+          <p>Loading credentials…</p>
         </mat-card-content>
       </mat-card>
 
@@ -68,28 +78,32 @@ interface CredentialGroup {
         </p>
       </div>
 
-      <mat-tab-group *ngIf="!loading && groups.length > 0"
-                     [(selectedIndex)]="selectedTabIndex">
+      <div class="cred-panel" *ngIf="!loading && groups.length > 0">
+        <mat-tab-group [(selectedIndex)]="selectedTabIndex">
         <mat-tab *ngFor="let group of groups; trackBy: trackGroup">
           <ng-template mat-tab-label>
             <mat-icon class="tab-icon">{{ group.icon }}</mat-icon>
             {{ group.label }}
+            <span class="tab-count">{{ group.credentials.length }}</span>
           </ng-template>
 
           <div class="tab-content">
-            <div class="header-row">
-              <h2>{{ group.label }} ({{ group.credentials.length }})</h2>
-              <button mat-raised-button color="primary" (click)="addCredential(group)">
-                <mat-icon>add</mat-icon>
-                Add {{ group.label }}
-              </button>
-            </div>
+            <div class="table-scroll" *ngIf="group.credentials.length > 0">
+            <table mat-table [dataSource]="group.credentials" class="full-width">
 
-            <table mat-table [dataSource]="group.credentials" class="full-width"
-                   *ngIf="group.credentials.length > 0">
               <ng-container matColumnDef="name">
                 <th mat-header-cell *matHeaderCellDef>Name</th>
-                <td mat-cell *matCellDef="let credential">{{ credential.name }}</td>
+                <td mat-cell *matCellDef="let credential">
+                  <div class="name-cell">
+                    <span class="prov-badge" [ngClass]="badgeClass(labelForType(group, credential.type))">
+                      {{ labelForType(group, credential.type).charAt(0).toUpperCase() }}
+                    </span>
+                    <div class="name-stack">
+                      <strong>{{ credential.name }}</strong>
+                      <span class="meta">Added {{ credential.created_at | date:'MMM d' }}</span>
+                    </div>
+                  </div>
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="type">
@@ -107,8 +121,22 @@ interface CredentialGroup {
                 </td>
               </ng-container>
 
-              <ng-container matColumnDef="status">
+              <ng-container matColumnDef="last-test">
                 <th mat-header-cell *matHeaderCellDef>Last test</th>
+                <td mat-cell *matCellDef="let credential">
+                  <span class="test-time" *ngIf="results.has(credential.id) && !testing.has(credential.id)">
+                    {{ results.get(credential.id)?.tested_at | date:'MMM d HH:mm' }}
+                    <ng-container *ngIf="results.get(credential.id)?.exchange?.duration_ms as ms">
+                      · {{ ms | number }} ms
+                    </ng-container>
+                  </span>
+                  <span class="not-tested"
+                        *ngIf="!results.has(credential.id) && !testing.has(credential.id)">—</span>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef>Status</th>
                 <td mat-cell *matCellDef="let credential">
                   <span class="hop-status-chip hop-status-chip-running"
                         *ngIf="testing.has(credential.id)">Testing…</span>
@@ -119,7 +147,9 @@ interface CredentialGroup {
                           matTooltip="Show the full response"
                           (click)="showResult(credential)"
                           *ngIf="!testing.has(credential.id) && results.has(credential.id)">
-                    {{ results.get(credential.id)?.success ? 'Connected' : 'Failed' }}
+                    {{ results.get(credential.id)?.success
+                        ? 'Connected'
+                        : results.get(credential.id)?.message }}
                   </button>
                   <span class="not-tested"
                         *ngIf="!testing.has(credential.id) && !results.has(credential.id)">—</span>
@@ -127,29 +157,32 @@ interface CredentialGroup {
               </ng-container>
 
               <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+                <th mat-header-cell *matHeaderCellDef></th>
                 <td mat-cell *matCellDef="let credential">
-                  <button mat-icon-button matTooltip="Test connection"
-                          *ngIf="group.testable"
-                          [disabled]="testing.has(credential.id)"
-                          (click)="testCredential(credential)">
-                    <mat-spinner *ngIf="testing.has(credential.id)" diameter="20"></mat-spinner>
-                    <mat-icon *ngIf="!testing.has(credential.id)">network_check</mat-icon>
-                  </button>
-                  <button mat-icon-button matTooltip="Edit"
-                          (click)="editCredential(group, credential)">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button mat-icon-button matTooltip="Delete"
-                          (click)="deleteCredential(credential)">
-                    <mat-icon>delete</mat-icon>
-                  </button>
+                  <div class="actions-cell">
+                    <button mat-icon-button matTooltip="Test connection"
+                            *ngIf="group.testable"
+                            [disabled]="testing.has(credential.id)"
+                            (click)="testCredential(credential)">
+                      <mat-spinner *ngIf="testing.has(credential.id)" diameter="20"></mat-spinner>
+                      <mat-icon *ngIf="!testing.has(credential.id)">network_check</mat-icon>
+                    </button>
+                    <button mat-icon-button matTooltip="Edit"
+                            (click)="editCredential(group, credential)">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button matTooltip="Delete"
+                            (click)="deleteCredential(credential)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </td>
               </ng-container>
 
               <tr mat-header-row *matHeaderRowDef="group.columns"></tr>
               <tr mat-row *matRowDef="let row; columns: group.columns;"></tr>
             </table>
+            </div>
 
             <div class="no-data" *ngIf="group.credentials.length === 0">
               <mat-icon>{{ group.icon }}</mat-icon>
@@ -157,24 +190,62 @@ interface CredentialGroup {
             </div>
           </div>
         </mat-tab>
-      </mat-tab-group>
+        </mat-tab-group>
+      </div>
     </div>
   `,
   styles: [`
-    h1 { margin-bottom: 4px; }
-    .page-intro { max-width: 70ch; margin: 0 0 24px; }
-    .tab-icon { margin-right: 8px; }
-    .tab-content { padding: 24px 0; }
-    .header-row {
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
     }
-    .header-row h2 { margin: 0; font-size: 1.125rem; }
+    .page-header > div { display: flex; flex-direction: column; gap: 4px; }
+    h1 { margin: 0; }
+    .page-intro { max-width: 70ch; margin: 0; color: var(--text-secondary); }
+
+    .cred-panel {
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-primary);
+    }
+    .tab-icon { margin-right: 8px; }
+    .tab-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 6px; border-radius: 9999px;
+      font-size: 11px; font-weight: 600; margin-left: 8px;
+      background: var(--bg-tertiary); color: var(--text-tertiary);
+    }
+    .tab-content { padding: 0; }
+    .table-scroll { overflow-x: auto; }
     .full-width { width: 100%; }
-    .value-cell { overflow-wrap: anywhere; }
+
+    /* Name cell */
+    .name-cell { display: flex; align-items: center; gap: 10px; }
+    .name-stack { display: flex; flex-direction: column; gap: 2px; }
+    .name-stack strong { font-weight: 600; }
+    .meta { font-size: 12px; color: var(--text-tertiary); }
+
+    /* Provider badge */
+    .prov-badge {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px;
+    }
+    .badge-0 { background: var(--color-primary-bg); color: var(--color-primary-text); }
+    .badge-1 { background: var(--color-accent-bg); color: var(--color-accent-text); }
+    .badge-2 { background: var(--color-tertiary-bg); color: var(--color-tertiary-text); }
+    .badge-3 { background: var(--color-success-bg); color: var(--color-success-text); }
+    .badge-4 { background: var(--color-warning-bg); color: var(--color-warning-text); }
+
+    /* Table cells */
+    .value-cell { overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 0.8125rem; }
+    .test-time { font-size: 13px; color: var(--text-tertiary); white-space: nowrap; }
     .not-tested { color: var(--text-tertiary); }
-    .result-chip { border: none; cursor: pointer; font: inherit; }
-    .actions-header { text-align: right; }
+    .result-chip { border: none; cursor: pointer; font: inherit; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .actions-cell { display: flex; justify-content: flex-end; }
+
+    /* Loading / empty */
     .loading-card { display: flex; justify-content: center; min-height: 200px; text-align: center; }
     .loading-card mat-card-content { display: flex; flex-direction: column; align-items: center; }
     .no-data { text-align: center; padding: 48px 16px; color: var(--text-tertiary); }
@@ -204,9 +275,18 @@ export class HopCredentialsComponent implements OnInit {
   /** Last test result per credential, for this page view only. */
   results = new Map<string, CredentialTestResult>();
 
+  get currentGroup(): CredentialGroup | undefined {
+    return this.groups[this.selectedTabIndex];
+  }
+
   ngOnInit(): void { this.load(); }
 
   trackGroup(_index: number, group: CredentialGroup): string { return group.key; }
+
+  /** Pick one of five badge color classes based on the provider label's first character. */
+  badgeClass(label: string): string {
+    return `badge-${label.charCodeAt(0) % 5}`;
+  }
 
   /** Full load: registered types never change while the page is open. */
   private load(): void {
@@ -302,7 +382,8 @@ export class HopCredentialsComponent implements OnInit {
         // Only a grouped tab needs to say which provider a row is.
         ...(group.types.length > 1 ? ['type'] : []),
         ...group.summaryFields.map(f => 'field:' + f.name),
-        ...(group.testable ? ['status'] : []),
+        // Testable groups get separate columns for timestamp and status chip.
+        ...(group.testable ? ['last-test', 'status'] : []),
         'actions',
       ];
     }
@@ -432,7 +513,7 @@ export class HopCredentialsComponent implements OnInit {
 
   private openEditor(group: CredentialGroup, credential: Credential | null) {
     return this.dialog.open(HopCredentialEditorDialogComponent, {
-      width: '560px',
+      width: '640px',
       maxWidth: '95vw',
       data: {
         credential,

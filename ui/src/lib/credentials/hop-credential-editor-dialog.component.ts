@@ -42,12 +42,12 @@ export interface HopCredentialEditorResult {
 
     <mat-dialog-content>
       <form [formGroup]="form">
-        <p class="type-description" *ngIf="selectedType?.description">
+        <p class="type-description full-width" *ngIf="selectedType?.description">
           {{ selectedType?.description }}
         </p>
 
         <!-- Only a grouped tab needs this; a single-type tab already knows. -->
-        <mat-form-field appearance="outline" class="full-width" *ngIf="data.types.length > 1">
+        <mat-form-field appearance="outline" *ngIf="data.types.length > 1">
           <mat-label>Provider</mat-label>
           <mat-select formControlName="type" required [disabled]="!isNew">
             <mat-option *ngFor="let type of data.types" [value]="type.type">
@@ -57,7 +57,8 @@ export interface HopCredentialEditorResult {
           <mat-hint *ngIf="!isNew">A credential's provider cannot be changed.</mat-hint>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <!-- Full-width when no provider picker shares the row, half-width when it does. -->
+        <mat-form-field appearance="outline" [class.full-width]="data.types.length <= 1">
           <mat-label>Name</mat-label>
           <input matInput formControlName="name" required
                  placeholder="How you will recognise this credential">
@@ -67,7 +68,8 @@ export interface HopCredentialEditorResult {
         </mat-form-field>
 
         <ng-container *ngFor="let field of fields">
-          <mat-form-field appearance="outline" class="full-width"
+          <!-- Textareas span both columns; all other inputs take one column each. -->
+          <mat-form-field appearance="outline" [class.full-width]="field.type === 'textarea'"
                           *ngIf="field.type !== 'select'">
             <mat-label>{{ field.label }}</mat-label>
             <textarea *ngIf="field.type === 'textarea'" matInput rows="4"
@@ -86,7 +88,7 @@ export interface HopCredentialEditorResult {
             </mat-error>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width"
+          <mat-form-field appearance="outline"
                           *ngIf="field.type === 'select'">
             <mat-label>{{ field.label }}</mat-label>
             <mat-select [formControlName]="field.name">
@@ -110,10 +112,15 @@ export interface HopCredentialEditorResult {
     </mat-dialog-actions>
   `,
   styles: [`
-    mat-dialog-content { width: 520px; max-width: 100%; padding: 4px 24px 0; }
-    .full-width { width: 100%; }
-    .type-description { color: var(--text-tertiary); margin: 0 0 8px; }
-    @media (max-width: 768px) { mat-dialog-content { width: 100%; } }
+    mat-dialog-content { width: 592px; max-width: 100%; padding: 4px 24px 0; }
+    form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+    .full-width { grid-column: 1 / -1; }
+    .type-description { color: var(--text-tertiary); margin: 0 0 4px; }
+    @media (max-width: 620px) {
+      mat-dialog-content { width: 100%; }
+      form { grid-template-columns: 1fr; }
+      .full-width { grid-column: auto; }
+    }
   `],
 })
 export class HopCredentialEditorDialogComponent implements OnInit {
