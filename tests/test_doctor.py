@@ -12,6 +12,7 @@ from hop_core.doctor import Severity, discover, main, run_checks
 from hop_core.doctor.checks import (
     check_agent_notes,
     check_docker_build_context,
+    check_form_field_appearance,
     check_inline_critical,
     check_npm_dependency,
     check_python_dependency,
@@ -246,6 +247,77 @@ class TestRequiredSettings:
         )
         findings = check_required_settings(discover(tmp_path))
         assert any("template values" in f.summary for f in findings)
+
+
+class TestFormFieldAppearance:
+    def _fe(self, tmp_path):
+        write(tmp_path / "frontend" / "angular.json", angular_json())
+        return tmp_path
+
+    def test_skip_when_no_frontend(self, tmp_path):
+        f = only(check_form_field_appearance(discover(tmp_path)))
+        assert f.severity is Severity.SKIP
+
+    def test_pass_when_provide_hop_ui_used(self, tmp_path):
+        root = self._fe(tmp_path)
+        write(
+            root / "frontend/src/app/app.config.ts",
+            "import { provideHopUi } from '@heretto/hop-ui';\n"
+            "export const appConfig = { providers: [provideHopUi()] };\n",
+        )
+        f = only(check_form_field_appearance(discover(root)))
+        assert f.severity is Severity.PASS
+
+    def test_pass_when_mat_token_set(self, tmp_path):
+        root = self._fe(tmp_path)
+        write(
+            root / "frontend/src/app/app.config.ts",
+            "import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';\n"
+            "{ provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: { appearance: 'outline' } }\n",
+        )
+        f = only(check_form_field_appearance(discover(root)))
+        assert f.severity is Severity.PASS
+
+    def test_warn_when_bare_form_field_in_html(self, tmp_path):
+        root = self._fe(tmp_path)
+        write(root / "frontend/src/app/app.config.ts", "export const appConfig = {};\n")
+        write(
+            root / "frontend/src/app/widget.component.html",
+            "<mat-form-field>\n  <input matInput />\n</mat-form-field>\n",
+        )
+        f = only(check_form_field_appearance(discover(root)))
+        assert f.severity is Severity.WARN
+        assert "filled" in f.summary
+
+    def test_warn_when_bare_form_field_in_ts(self, tmp_path):
+        root = self._fe(tmp_path)
+        write(root / "frontend/src/app/app.config.ts", "export const appConfig = {};\n")
+        write(
+            root / "frontend/src/app/widget.component.ts",
+            "template: `<mat-form-field><input matInput></mat-form-field>`\n",
+        )
+        f = only(check_form_field_appearance(discover(root)))
+        assert f.severity is Severity.WARN
+
+    def test_pass_when_all_fields_have_appearance(self, tmp_path):
+        root = self._fe(tmp_path)
+        write(root / "frontend/src/app/app.config.ts", "export const appConfig = {};\n")
+        write(
+            root / "frontend/src/app/widget.component.html",
+            '<mat-form-field appearance="outline"><input matInput /></mat-form-field>\n',
+        )
+        f = only(check_form_field_appearance(discover(root)))
+        assert f.severity is Severity.PASS
+
+    def test_pass_when_no_mat_form_field(self, tmp_path):
+        root = self._fe(tmp_path)
+        write(root / "frontend/src/app/app.config.ts", "export const appConfig = {};\n")
+        f = only(check_form_field_appearance(discover(root)))
+        assert f.severity is Severity.PASS
+
+    def test_never_fails(self, tmp_path):
+        f = only(check_form_field_appearance(discover(tmp_path)))
+        assert f.severity is not Severity.FAIL
 
 
 class TestAgentNotes:

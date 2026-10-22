@@ -111,6 +111,37 @@ M3 theme + `--mat-sys-*` bridge, a CSS reset, typography, all Material
 component overrides (section 5), and the utility classes (section 7). Nothing
 renders until the mixin is included.
 
+### Step 4 — Form field appearance in `app.config.ts`
+
+Angular Material's default form field style is **filled** (grey background). The
+hop-ui theme styles only the **outlined** variant, so a bare `<mat-form-field>`
+without an explicit `appearance` renders grey. Set the default once so every
+field in the app uses `outline` automatically:
+
+```typescript
+import { provideHopUi } from '@heretto/hop-ui';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // …your other providers…
+    provideHopUi(),
+  ],
+};
+```
+
+`provideHopUi()` registers `MAT_FORM_FIELD_DEFAULT_OPTIONS` with
+`{ appearance: 'outline' }`. If you prefer the raw Material token:
+
+```typescript
+import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
+// in providers:
+{ provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: { appearance: 'outline' } }
+```
+
+`hop-doctor` (check `frontend.form_field_appearance`) warns when bare
+`<mat-form-field>` elements exist in the app's templates and this default is not
+set.
+
 > **If you serve the app with a Content-Security-Policy, check one more thing.**
 > Angular's production build defaults to `optimization.styles.inlineCritical`,
 > which loads your stylesheet inert (`media="print"`) and activates it with an
@@ -285,7 +316,7 @@ The mixin overrides all Material components. Defaults you get for free:
 |---|---|
 | Buttons | 8px radius, 36px tall, Inter medium. `mat-raised-button color="primary"` / `mat-flat-button color="primary"` = **navy fill, white label**. Outlined = hairline `--border-strong`, fills `--hover-overlay` on hover |
 | Cards (`mat-card`) | `--card-bg` fill, 1px `--card-border`, 12px radius, **no shadow** |
-| Form fields | Outlined only, 44px tall, 8px radius; 12px top margin (floating-label room), 10px between consecutive fields — **do not add your own field margins** |
+| Form fields | Outlined only (requires `appearance: 'outline'` — call `provideHopUi()` once in `app.config.ts`; the filled style is unstyled and renders grey), 44px tall, 8px radius; 12px top margin (floating-label room), 10px between consecutive fields — **do not add your own field margins** |
 | Tabs | **Left-aligned at natural width** (no stretch), teal underline on active, quiet inactive labels |
 | Tables (`mat-table`) | Transparent bg, uppercase quiet headers (`--text-tertiary`), hairline row dividers, row hover overlay; the actively sorted header reads `--text-primary`. For a data table, prefer `hop-data-table` (section 8) over hand-written `mat-table` markup |
 | Menus / selects / dialogs | `--bg-elevated` + hairline border; dialog 14px radius |
@@ -678,7 +709,7 @@ import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { hopAuthInterceptor } from '@heretto/hop-ui';
+import { hopAuthInterceptor, provideHopUi } from '@heretto/hop-ui';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -686,6 +717,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([hopAuthInterceptor])),
     provideAnimations(),
+    provideHopUi(),  // sets form field appearance: 'outline' globally (see §1 Step 4)
   ],
 };
 ```
