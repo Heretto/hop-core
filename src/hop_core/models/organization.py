@@ -26,7 +26,7 @@ class OrganizationMember(Base):
         nullable=False,
     )
     role = Column(
-        SQLEnum(OrganizationRole, name="organizationrole", create_type=False),
+        SQLEnum(OrganizationRole, name="organizationrole"),
         nullable=False,
         default=OrganizationRole.MEMBER,
     )
