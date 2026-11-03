@@ -62,6 +62,10 @@
     --mat-form-field-container-vertical-padding: 10px;
     --mat-form-field-outlined-container-shape: 8px;
     --mat-form-field-filled-container-shape: 8px;
+    // Failsafe: if an app omits provideHopUi() and a field gets the filled
+    // appearance by default, make it white instead of the M3 surface-container
+    // grey — a wrong look, but not an unreadable one.
+    --mat-form-field-filled-container-color: var(--input-bg);
   }
 
   // Icons: Material Symbols Rounded everywhere — light, unfilled line style.

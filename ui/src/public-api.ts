@@ -1,3 +1,6 @@
+// Setup
+export { provideHopUi } from './lib/providers';
+
 // Token
 export { HOP_API_URL } from './lib/tokens/hop-api-url.token';
 export { HOP_LOGO_SRC } from './lib/tokens/hop-logo-src.token';

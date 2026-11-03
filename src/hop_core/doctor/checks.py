@@ -875,6 +875,85 @@ def check_agent_notes(project: Project) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# frontend.form_field_appearance
+
+
+def check_form_field_appearance(project: Project) -> list[Finding]:
+    """Form fields render grey unless the default appearance is set to 'outline'.
+
+    The hop-ui theme styles only the outlined form field variant. A bare
+    <mat-form-field> uses Angular Material's default filled appearance (grey
+    background). MAT_FORM_FIELD_DEFAULT_OPTIONS or provideHopUi() sets the
+    default globally so every field gets 'outline' without a per-field attribute.
+    """
+    cid = "frontend.form_field_appearance"
+    if project.frontend is None:
+        return [Finding(cid, Severity.SKIP, "no frontend directory detected")]
+
+    sources = _app_sources(project.frontend)
+
+    # PASS immediately if the global default is already set.
+    for path, text in sources:
+        if "provideHopUi" in text and "provideHopUi()" in text:
+            return [
+                Finding(
+                    cid,
+                    Severity.PASS,
+                    "form field appearance default is set via provideHopUi()",
+                    location=_loc(path, project.root, _line_of(text, "provideHopUi")),
+                )
+            ]
+        if "MAT_FORM_FIELD_DEFAULT_OPTIONS" in text and "outline" in text:
+            return [
+                Finding(
+                    cid,
+                    Severity.PASS,
+                    "form field appearance default is set to 'outline'",
+                    location=_loc(path, project.root, _line_of(text, "MAT_FORM_FIELD_DEFAULT_OPTIONS")),
+                )
+            ]
+
+    # No global default — check whether any template uses a bare <mat-form-field>.
+    bare: list[str] = []
+
+    src = project.frontend / "src"
+    if src.is_dir():
+        for path in sorted(src.rglob("*.html")):
+            if any(part in _SKIP_DIRS for part in path.parts):
+                continue
+            text = _read(path) or ""
+            for i, line in enumerate(text.splitlines(), 1):
+                if "<mat-form-field" in line and "appearance=" not in line:
+                    bare.append(_loc(path, project.root, i))
+                    break
+
+    for path, text in sources:
+        for i, line in enumerate(text.splitlines(), 1):
+            if "<mat-form-field" in line and "appearance=" not in line:
+                bare.append(_loc(path, project.root, i))
+                break
+
+    if not bare:
+        return [Finding(cid, Severity.PASS, "no bare mat-form-field elements found")]
+
+    return [
+        Finding(
+            cid,
+            Severity.WARN,
+            f"mat-form-field without appearance set in {len(bare)} file(s); "
+            "fields will render with the grey filled style",
+            "A bare <mat-form-field> uses Angular Material's default filled appearance,\n"
+            "which has a grey background the hop-ui theme does not override.\n"
+            "Set the default once in app.config.ts to apply 'outline' everywhere.",
+            "import { provideHopUi } from '@heretto/hop-ui';\n"
+            "// in appConfig.providers:\n"
+            "provideHopUi()",
+            bare[0],
+        )
+    ]
+
+
+# ---------------------------------------------------------------------------
 
 REGISTRY = (
     check_python_dependency,
@@ -884,5 +963,6 @@ REGISTRY = (
     check_docker_build_context,
     check_required_settings,
     check_zoneless,
+    check_form_field_appearance,
     check_agent_notes,
 )
