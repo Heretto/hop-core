@@ -25,8 +25,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   HerettoFile, HopConfirmDialogComponent, HopConfirmDialogData, HopDataTableComponent, HopDitaContentComponent,
-  HerettoFolder, HopHerettoFileFieldComponent, HopTableCellDirective, HopTableColumn, openHerettoFileBrowser,
-  openHerettoFilesBrowser, openHerettoFolderBrowser,
+  HerettoFolder, HopHerettoFileFieldComponent, HopTableCellDirective, HopTableColumn, HopPagedTableComponent,
+  HopTableParams, openHerettoFileBrowser, openHerettoFilesBrowser, openHerettoFolderBrowser,
 } from '@heretto/hop-ui';
 
 interface Swatch {
@@ -102,6 +102,7 @@ interface MemberRow {
     HopDitaContentComponent,
     HopDataTableComponent,
     HopTableCellDirective,
+    HopPagedTableComponent,
     HopHerettoFileFieldComponent,
   ],
   template: `
@@ -504,6 +505,39 @@ interface MemberRow {
         </mat-card>
       </section>
 
+      <!-- SERVER-SIDE PAGINATED TABLE ------------------------------------- -->
+      <section>
+        <h2>Server-side paginated table</h2>
+        <p class="section-note">
+          <code>&lt;hop-paged-table&gt;</code> emits a <code>HopTableParams</code> object on every
+          page, sort, or filter change.  The host fetches the matching page from the server and
+          feeds back <code>[items]</code> and <code>[total]</code>.  No client-side sorting or
+          filtering happens.  This demo simulates a 150ms server round-trip.
+        </p>
+        <mat-card class="demo-card table-card">
+          <hop-paged-table
+            [columns]="pagedMemberColumns"
+            [items]="pagedItems"
+            [total]="pagedTotal"
+            [loading]="pagedLoading"
+            [filterable]="true"
+            filterPlaceholder="Filter by name or email"
+            [pageSizeOptions]="[3, 5, 10]"
+            [pageSize]="3"
+            sortActive="name"
+            (paramsChange)="loadPagedMembers($event)">
+            <ng-template hopCell="role" let-m>
+              <mat-chip highlighted color="primary">{{ m.role }}</mat-chip>
+            </ng-template>
+            <ng-template hopCell="status" let-m>
+              <span class="dot" [class.active]="m.status === 'Active'"></span>
+              {{ m.status }}
+            </ng-template>
+            <ng-template hopCell="joined" let-m>{{ m.joined | date: 'mediumDate' }}</ng-template>
+          </hop-paged-table>
+        </mat-card>
+      </section>
+
       <!-- LISTS & MENUS --------------------------------------------------- -->
       <section>
         <h2>Lists &amp; menus</h2>
@@ -831,6 +865,41 @@ export class WidgetsComponent {
     { name: 'Edsger Dijkstra', email: 'edsger@example.com', role: 'Member', status: 'Active', joined: new Date(2025, 1, 14) },
     { name: 'Barbara Liskov', email: 'barbara@example.com', role: 'Member', status: 'Invited', joined: new Date(2025, 9, 2) },
   ];
+
+  // Server-side paged table demo — simulates a backend call with 150ms latency.
+  pagedMemberColumns: HopTableColumn<MemberRow>[] = [
+    { key: 'name', label: 'Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'role', label: 'Role' },
+    { key: 'status', label: 'Status' },
+    { key: 'joined', label: 'Joined', sortable: false },
+  ];
+  pagedItems: MemberRow[] = [];
+  pagedTotal = 0;
+  pagedLoading = false;
+
+  loadPagedMembers(params: HopTableParams): void {
+    this.pagedLoading = true;
+    // Simulate 150ms server latency, then filter/sort/slice the in-memory dataset.
+    setTimeout(() => {
+      let rows = [...this.members];
+      if (params.filter) {
+        const term = params.filter.toLowerCase();
+        rows = rows.filter(r =>
+          r.name.toLowerCase().includes(term) || r.email.toLowerCase().includes(term)
+        );
+      }
+      if (params.sortBy === 'name') {
+        rows.sort((a, b) => a.name.localeCompare(b.name) * (params.sortDir === 'desc' ? -1 : 1));
+      } else if (params.sortBy === 'email') {
+        rows.sort((a, b) => a.email.localeCompare(b.email) * (params.sortDir === 'desc' ? -1 : 1));
+      }
+      this.pagedTotal = rows.length;
+      const start = (params.page - 1) * params.pageSize;
+      this.pagedItems = rows.slice(start, start + params.pageSize);
+      this.pagedLoading = false;
+    }, 150);
+  }
 
   removeChip(): void {
     this.snackBar.open('Chip removed', 'Dismiss', { duration: 2000 });

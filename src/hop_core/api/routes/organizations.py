@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func as sa_func
-from typing import List
+from typing import Annotated, List
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
 import secrets
@@ -14,6 +14,7 @@ from hop_core.config import get_settings
 from hop_core.models.user import User
 from hop_core.models.organization import Organization, OrganizationMember, OrganizationInvitation, user_organizations
 from hop_core.models.enums import OrganizationRole
+from hop_core.pagination import PaginatedResponse, PaginationParams, paginate
 from hop_core.schemas.organization import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse,
     OrganizationMemberUpdate, OrganizationMemberResponse,
@@ -231,6 +232,57 @@ async def list_organization_members(
             ))
 
     return member_responses
+
+
+_MEMBER_SORT_MAP = {
+    "email": User.email,
+    "role": User.email,  # secondary; primary sort on role isn't a column here
+    "joined_at": OrganizationMember.joined_at,
+}
+
+
+@router.get("/current/members/paged", response_model=PaginatedResponse[OrganizationMemberResponse])
+async def list_organization_members_paged(
+    params: Annotated[PaginationParams, Depends()],
+    context: CurrentUserContext = Depends(get_current_active_user_with_org),
+    db: Session = Depends(get_db),
+):
+    """Paginated, sortable member list.
+
+    Accepts ``page``, ``pageSize``, ``sortBy`` (email | joined_at), ``sortDir``
+    (asc | desc), and ``filter`` (matches against email) as query params.
+    Returns a ``PaginatedResponse`` envelope.
+    """
+    q = (
+        db.query(OrganizationMember)
+        .join(User, User.id == OrganizationMember.user_id)
+        .filter(OrganizationMember.organization_id == context.organization_id)
+    )
+
+    if params.filter:
+        term = f"%{params.filter}%"
+        q = q.filter(User.email.ilike(term))
+
+    sort_map = {
+        "email": User.email,
+        "joined_at": OrganizationMember.joined_at,
+    }
+    members, total = paginate(q, params, sort_map)
+
+    items = []
+    for m in members:
+        role_val = _normalize_role(m.role)
+        items.append(OrganizationMemberResponse(
+            id=m.user_id,
+            user_id=m.user_id,
+            user_email=m.user.email if m.user else "",
+            user_name=None,
+            role=role_val,
+            joined_at=m.joined_at,
+            invited_by=m.invited_by,
+        ))
+
+    return PaginatedResponse(items=items, total=total, page=params.page, page_size=params.page_size)
 
 
 @router.patch("/members/{member_id}", response_model=OrganizationMemberResponse)

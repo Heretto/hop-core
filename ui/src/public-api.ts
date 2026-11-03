@@ -81,6 +81,8 @@ export { HopHerettoFileFieldComponent } from './lib/heretto/hop-heretto-file-fie
 export type { HerettoFieldValue } from './lib/heretto/hop-heretto-file-field.component';
 export { HopDataTableComponent, HopTableCellDirective } from './lib/table/hop-data-table.component';
 export type { HopTableColumn, HopTableValue } from './lib/table/hop-data-table.component';
+export { HopPagedTableComponent } from './lib/table/hop-paged-table.component';
+export type { HopTableParams } from './lib/table/hop-paged-table.component';
 export { HopDitaContentComponent } from './lib/dita/hop-dita-content.component';
 export type { HopDitaLinkEvent } from './lib/dita/hop-dita-content.component';
 export { HopConfirmDialogComponent } from './lib/shared/hop-confirm-dialog.component';
