@@ -4,6 +4,8 @@ export { provideHopUi } from './lib/providers';
 // Token
 export { HOP_API_URL } from './lib/tokens/hop-api-url.token';
 export { HOP_LOGO_SRC } from './lib/tokens/hop-logo-src.token';
+export { HOP_LOGIN_CONFIG } from './lib/tokens/hop-login-config.token';
+export type { HopLoginConfig } from './lib/tokens/hop-login-config.token';
 
 // Services
 export { HopAuthService } from './lib/auth/hop-auth.service';
