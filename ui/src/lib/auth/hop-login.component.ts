@@ -35,6 +35,12 @@ import { HOP_LOGIN_CONFIG, HopLoginConfig } from '../tokens/hop-login-config.tok
   ],
   template: `
     <div class="login-page" [style]="backgroundStyle">
+      <!-- Page-level header bar -->
+      <header class="page-header" *ngIf="resolvedLogoSrc || resolvedAppName">
+        <img *ngIf="resolvedLogoSrc" [src]="resolvedLogoSrc" class="header-logo" alt="">
+        <span *ngIf="resolvedAppName" class="header-name">{{ resolvedAppName }}</span>
+      </header>
+
       <!-- Organization Selection Step -->
       <mat-card class="login-card" *ngIf="showOrgSelection">
         <div class="card-brand" *ngIf="resolvedLogoSrc || resolvedAppName">
@@ -146,26 +152,53 @@ import { HOP_LOGIN_CONFIG, HopLoginConfig } from '../tokens/hop-login-config.tok
   `,
   styles: [`
     /* -----------------------------------------------------------------------
-       Page shell — background is set via the [backgroundStyle] binding which
-       reads the --hop-login-bg CSS property.  Apps override it in their
-       global stylesheet:
+       Page shell — background is set via the --hop-login-bg CSS property.
+       Apps override it in their global stylesheet:
 
          :root { --hop-login-bg: #1a2f4e; }
          :root { --hop-login-bg: url('/assets/bg.jpg') center/cover no-repeat; }
     ----------------------------------------------------------------------- */
     .login-page {
       display: flex;
-      justify-content: center;
-      align-items: center;
+      flex-direction: column;
       min-height: 100vh;
-      padding: 24px 16px;
       background: var(--hop-login-bg, var(--surface-sunken));
+    }
+
+    /* Header bar — sits at the very top of the page */
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 24px;
+      height: 52px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0;
+    }
+    .header-logo {
+      height: 20px;
+      width: auto;
+      flex-shrink: 0;
+    }
+    .header-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Card centred in the remaining space */
+    .login-page > mat-card {
+      margin: auto;
+      width: calc(100% - 32px);
+      max-width: 420px;
     }
 
     /* Card */
     .login-card {
-      width: 100%;
-      max-width: 420px;
       padding: 32px 32px 24px;
     }
 
@@ -252,6 +285,8 @@ import { HOP_LOGIN_CONFIG, HopLoginConfig } from '../tokens/hop-login-config.tok
     .sso-only-hint { text-align: center; color: var(--text-secondary); font-size: 14px; }
 
     @media (max-width: 480px) {
+      .page-header { padding: 0 16px; }
+      .login-page > mat-card { width: calc(100% - 24px); }
       .login-card { padding: 24px 20px 20px; }
     }
   `],
