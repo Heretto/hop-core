@@ -22,3 +22,8 @@
 @use '../../../ui/src/lib/theme/index' as hop;
 
 @include hop.hop-core-theme();
+
+// Login page background — override --hop-login-bg to use a color or image.
+// Leave unset to keep the default surface-sunken grey.
+// :root { --hop-login-bg: #1a2f4e; }
+// :root { --hop-login-bg: url('/assets/bg.jpg') center/cover no-repeat; }
