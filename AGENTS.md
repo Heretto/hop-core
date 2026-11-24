@@ -720,3 +720,93 @@ curl -s -o /dev/null -w '%{http_code}\n' https://<app>/api/v1/dtd-sets   # 401 m
 **Fix.** Install the extra and a supported `xmllint`, mount the router, route
 the detail page, and match the proxy's body limit — then upload a package on
 the deployed app and check that it reaches **Ready**.
+
+---
+
+## 13. Production deployments behind a reverse proxy / HTTPS
+
+hop-core apps must run behind a TLS-terminating reverse proxy in production —
+the backend does not terminate TLS itself. Three hop-core settings and several
+proxy-side decisions have to agree for auth, SSO, CORS, and HSTS to work
+correctly.
+
+**Check**
+
+```bash
+# Cookies carry the Secure flag in production
+curl -si https://<app>/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"x","password":"x"}' \
+  | grep -i "set-cookie"           # expect "Secure" in every Set-Cookie line
+
+# HSTS header is present (only emitted when COOKIE_SECURE=true)
+curl -si https://<app>/api/health | grep -i "strict-transport"
+
+# Public URLs are HTTPS
+grep -E "FRONTEND_BASE_URL|OAUTH_REDIRECT_BASE_URL|CORS_ORIGINS" .env
+# All values must start with https:// in production
+
+# Proxy forwards required headers (nginx example — adapt for your proxy)
+grep -n "proxy_set_header\|X-Forwarded\|client_max_body_size" /etc/nginx/sites-enabled/<app>
+```
+
+**Why.**
+
+- **`COOKIE_SECURE`** — `cookie_secure: bool = False` is the default because
+  `localhost` does not use HTTPS. Set `COOKIE_SECURE=true` in every production
+  environment. When false, auth cookies have no `Secure` flag, so browsers send
+  them over HTTP as well as HTTPS. `SecurityHeadersMiddleware` also gates its
+  `Strict-Transport-Security` header on this flag — without it, HSTS is never
+  sent.
+
+- **`FRONTEND_BASE_URL`** — used in password-reset and invitation emails. If it
+  defaults to `http://localhost:4200`, every link in a production email is broken.
+
+- **`OAUTH_REDIRECT_BASE_URL`** — the OAuth provider sends the user back to
+  `{OAUTH_REDIRECT_BASE_URL}/api/v1/auth/sso/<provider>/callback`. If this is
+  wrong or uses `http://`, the callback either fails CSRF validation or is
+  rejected by the provider, which registers the redirect URI in its console.
+
+- **`CORS_ORIGINS`** — must include the production `https://` origin. The
+  default (`http://localhost:4200`) blocks every browser request in production.
+
+- **Proxy header forwarding** — the app runs HTTP internally. Without `Host`
+  and `X-Forwarded-Proto: https` forwarded by the proxy, any code that
+  constructs an absolute URL (including OAuth state validation) sees `http://`
+  and may build wrong or mismatched redirect URLs.
+
+- **Proxy body limit** — nginx's `client_max_body_size` defaults to 1 MB; DTD
+  uploads go up to `DTD_UPLOAD_MAX_MB` (default 50). Set the proxy's limit at
+  least as high, or uploads fail with a 413 before the app sees the request.
+
+**Fix.** Required settings for a production deployment:
+
+```bash
+COOKIE_SECURE=true
+FRONTEND_BASE_URL=https://<app-domain>
+OAUTH_REDIRECT_BASE_URL=https://<app-domain>   # only if using SSO
+CORS_ORIGINS=https://<app-domain>
+```
+
+Minimum nginx proxy block:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name <app-domain>;
+
+    client_max_body_size 51M;    # >= DTD_UPLOAD_MAX_MB + 1
+
+    location / {
+        proxy_pass         http://backend:8000;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+```
+
+Caddy handles these headers automatically; Traefik does too with its standard
+entrypoints. If your ingress adds its own `Content-Security-Policy` header,
+verify it does not conflict with §4 — a proxy-layer CSP and a missing
+`inlineCritical: false` produce the same invisible-stylesheet symptom.
